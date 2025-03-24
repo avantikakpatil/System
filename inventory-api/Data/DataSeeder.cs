@@ -1,4 +1,3 @@
-// Data/DataSeeder.cs
 using System;
 using System.Linq;
 using System.Security.Cryptography;
@@ -15,7 +14,7 @@ namespace inventory_api.Data
         {
             using var scope = host.Services.CreateScope();
             var services = scope.ServiceProvider;
-            var context = services.GetRequiredService<ApplicationDbContext>();
+            var context = services.GetRequiredService<ApplicationDbContext>(); // Make sure this matches your actual DbContext type
 
             try
             {
@@ -25,20 +24,32 @@ namespace inventory_api.Data
                     // Add admin user
                     context.Users.Add(new User
                     {
-                        Name = "Admin User",
+                        CustomerName = "Admin User",
                         Email = "admin@example.com",
-                        PasswordHash = HashPassword("admin123"),
-                        Role = "Admin",
+                        PhoneNumber = "1234567890",
+                        BillingAddress = "123 Admin St, City, Country",
+                        ShippingAddress = "123 Admin St, City, Country",
+                        Latitude = 0.0,
+                        Longitude = 0.0,
+                        GSTNumber = "ADMIN123GST",
+                        CompanyName = "Admin Company",
+                        Notes = "Admin user created during seeding",
                         CreatedAt = DateTime.UtcNow
                     });
 
                     // Add regular user
                     context.Users.Add(new User
                     {
-                        Name = "Regular User",
+                        CustomerName = "Regular User",
                         Email = "user@example.com",
-                        PasswordHash = HashPassword("user123"),
-                        Role = "User",
+                        PhoneNumber = "9876543210",
+                        BillingAddress = "456 User St, City, Country",
+                        ShippingAddress = "456 User St, City, Country",
+                        Latitude = 0.0,
+                        Longitude = 0.0,
+                        GSTNumber = "USER456GST",
+                        CompanyName = "User Company",
+                        Notes = "Regular user created during seeding",
                         CreatedAt = DateTime.UtcNow
                     });
 
@@ -52,6 +63,8 @@ namespace inventory_api.Data
             }
         }
 
+        // Since you don't have PasswordHash in your model, you might not need this method anymore
+        // If you do need to store passwords, you'll need to add that field to your User model
         private static string HashPassword(string password)
         {
             using var sha256 = SHA256.Create();

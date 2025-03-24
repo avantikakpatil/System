@@ -1,4 +1,3 @@
-// src/components/Users/Users.jsx
 import React, { useState, useEffect } from "react";
 import { getUsers, createUser, updateUser, deleteUser } from "../../services/api";
 
@@ -14,6 +13,14 @@ const Users = () => {
     email: "",
     password: "",
     role: "User",
+    phoneNumber: "",
+    companyName: "",
+    shippingAddress: "",
+    billingAddress: "",
+    gstNumber: "",
+    latitude: "",
+    longitude: "",
+    notes: "",
   });
 
   useEffect(() => {
@@ -44,25 +51,66 @@ const Users = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     try {
+      const userData = {
+        CustomerName: formData.name,
+        Email: formData.email,
+        ShippingAddress: formData.shippingAddress,
+        CreatedAt: new Date().toISOString(),
+        BillingAddress: formData.billingAddress,
+        CompanyName: formData.companyName,
+        GSTNumber: formData.gstNumber,
+        Latitude: parseFloat(formData.latitude) || 0,
+        Longitude: parseFloat(formData.longitude) || 0,
+        Notes: formData.notes,
+        PhoneNumber: formData.phoneNumber,
+      };
+
       if (editingUser) {
-        await updateUser(editingUser.id, formData);
+        await updateUser(editingUser.id, userData);
       } else {
-        await createUser(formData);
+        await createUser(userData);
       }
+
       await fetchUsers();
       setShowAddForm(false);
       setEditingUser(null);
-      setFormData({ name: "", email: "", password: "", role: "User" });
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        role: "User",
+        phoneNumber: "",
+        companyName: "",
+        shippingAddress: "",
+        billingAddress: "",
+        gstNumber: "",
+        latitude: "",
+        longitude: "",
+        notes: "",
+      });
     } catch (err) {
-      setError("Failed to save user");
-      console.error(err);
+      console.error("Error saving user:", err.response?.data || err.message);
+      setError(err.response?.data?.title || "Failed to save user");
     }
   };
 
   const handleEdit = (user) => {
     setEditingUser(user);
-    setFormData({ name: user.name, email: user.email, password: "", role: user.role });
+    setFormData({
+      name: user.CustomerName,
+      email: user.Email,
+      phoneNumber: user.PhoneNumber,
+      companyName: user.CompanyName,
+      shippingAddress: user.ShippingAddress,
+      billingAddress: user.BillingAddress,
+      gstNumber: user.GSTNumber,
+      latitude: user.Latitude.toString(),
+      longitude: user.Longitude.toString(),
+      notes: user.Notes,
+    });
     setShowAddForm(true);
   };
 
@@ -93,7 +141,20 @@ const Users = () => {
             onClick={() => {
               setShowAddForm(!showAddForm);
               setEditingUser(null);
-              setFormData({ name: "", email: "", password: "", role: "User" });
+              setFormData({
+                name: "",
+                email: "",
+                password: "",
+                role: "User",
+                phoneNumber: "",
+                companyName: "",
+                shippingAddress: "",
+                billingAddress: "",
+                gstNumber: "",
+                latitude: "",
+                longitude: "",
+                notes: "",
+              });
             }}
           >
             {showAddForm ? "Cancel" : "Add New User"}
@@ -107,41 +168,31 @@ const Users = () => {
             </h3>
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 font-bold mb-2">Full Name</label>
-                  <input
-                    className="border rounded w-full py-2 px-3"
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-bold mb-2">Email</label>
-                  <input
-                    className="border rounded w-full py-2 px-3"
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-bold mb-2">Password</label>
-                  <input
-                    className="border rounded w-full py-2 px-3"
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required={!editingUser}
-                  />
-                </div>
+                {[
+                  { label: "Full Name", name: "name" },
+                  { label: "Email", name: "email", type: "email" },
+                  { label: "Password", name: "password", type: "password" },
+                  { label: "Phone Number", name: "phoneNumber" },
+                  { label: "Company Name", name: "companyName" },
+                  { label: "Shipping Address", name: "shippingAddress" },
+                  { label: "Billing Address", name: "billingAddress" },
+                  { label: "GST Number", name: "gstNumber" },
+                  { label: "Latitude", name: "latitude" },
+                  { label: "Longitude", name: "longitude" },
+                  { label: "Notes", name: "notes" },
+                ].map(({ label, name, type = "text" }) => (
+                  <div key={name}>
+                    <label className="block text-gray-700 font-bold mb-2">{label}</label>
+                    <input
+                      className="border rounded w-full py-2 px-3"
+                      type={type}
+                      name={name}
+                      value={formData[name]}
+                      onChange={handleChange}
+                      required={name !== "notes"}
+                    />
+                  </div>
+                ))}
 
                 <div>
                   <label className="block text-gray-700 font-bold mb-2">Role</label>
@@ -184,24 +235,7 @@ const Users = () => {
               <th className="py-3 px-6 text-center">Actions</th>
             </tr>
           </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="border-b hover:bg-gray-50">
-                <td className="py-3 px-6">{user.id}</td>
-                <td className="py-3 px-6">{user.name}</td>
-                <td className="py-3 px-6">{user.email}</td>
-                <td className="py-3 px-6">{user.role}</td>
-                <td className="py-3 px-6 text-center">
-                  <button className="text-blue-500 mr-3" onClick={() => handleEdit(user)}>
-                    Edit
-                  </button>
-                  <button className="text-red-500" onClick={() => handleDelete(user.id)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+          <tbody>{/* Map user data here */}</tbody>
         </table>
       </div>
     </div>

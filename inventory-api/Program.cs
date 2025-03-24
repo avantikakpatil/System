@@ -7,11 +7,9 @@ using inventory_api.Services;
 using Microsoft.OpenApi.Models;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 
-
 var builder = WebApplication.CreateBuilder(args);
-// In Program.cs, add this line where you're registering services
 
-// Add services to the container
+// ✅ Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -31,25 +29,24 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ✅ Configure CORS
+// ✅ Configure CORS correctly
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // Needed for cookies/auth
     });
 });
 
-
 // ✅ Configure Database Connection
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-/* ✅ Configure JWT Authentication
+// ✅ Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -64,11 +61,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
         };
-    });*/
+    });
 
 // ✅ Register Services (Dependency Injection)
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+
 
 var app = builder.Build();
 
@@ -83,13 +81,14 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseCors();
-app.UseCors("AllowReactApp");
+app.UseCors("AllowReactApp"); // ✅ Apply CORS before authentication
 
+app.UseAuthentication(); // ✅ Enable JWT authentication
 app.UseAuthorization();
+
 app.MapControllers();
 
-// ✅ Create Database If It Doesn't Exist
+// ✅ Ensure Database is Created
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;

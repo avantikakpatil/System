@@ -1,4 +1,3 @@
-// Services/ProductService.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,27 +12,27 @@ namespace inventory_api.Services
     public class ProductService : IProductService
     {
         private readonly ApplicationDbContext _context;
-        
+
         public ProductService(ApplicationDbContext context)
         {
-            _context = context;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
         }
         
         public async Task<IEnumerable<ProductDto>> GetAllProductsAsync()
         {
             var products = await _context.Products.ToListAsync();
-            return products.Select(p => MapToProductDto(p));
+            return products.Select(MapToProductDto);
         }
         
         public async Task<ProductDto> GetProductByIdAsync(int id)
         {
             var product = await _context.Products.FindAsync(id);
             if (product == null)
-                return null;
+                throw new KeyNotFoundException($"Product with ID {id} not found");
                 
             return MapToProductDto(product);
         }
-        
+
         public async Task<ProductDto> CreateProductAsync(CreateProductDto createProductDto)
         {
             var product = new Product
@@ -47,10 +46,10 @@ namespace inventory_api.Services
                 IsActive = createProductDto.IsActive,
                 CreatedAt = DateTime.UtcNow
             };
-            
+
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
-            
+
             return MapToProductDto(product);
         }
         
@@ -58,7 +57,7 @@ namespace inventory_api.Services
         {
             var product = await _context.Products.FindAsync(id);
             if (product == null)
-                return null;
+                throw new KeyNotFoundException($"Product with ID {id} not found");
                 
             product.Name = updateProductDto.Name;
             product.Description = updateProductDto.Description;
@@ -86,7 +85,7 @@ namespace inventory_api.Services
             return true;
         }
         
-        private ProductDto MapToProductDto(Product product)
+        private static ProductDto MapToProductDto(Product product)
         {
             return new ProductDto
             {

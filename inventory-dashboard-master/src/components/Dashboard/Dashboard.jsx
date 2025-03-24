@@ -4,6 +4,7 @@ import StatCard from './StatCard';
 import BarChart from '../Charts/BarChart';
 import PieChart from '../Charts/PieChart';
 import LineChart from '../Charts/LineChart';
+import { getUsers } from '../../services/api'; // Import the API service
 
 const Dashboard = () => {
   const [users, setUsers] = useState([]);
@@ -13,8 +14,8 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get('http://localhost:5087/api/users');
-        setUsers(response.data);
+        const data = await getUsers();
+        setUsers(data);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching users:', err);
@@ -26,6 +27,14 @@ const Dashboard = () => {
     fetchUsers();
   }, []);
 
+  // Get first letter of name or fallback to "?"
+  const getInitial = (user) => {
+    if (user && user.name && typeof user.name === 'string') {
+      return user.name.charAt(0).toUpperCase();
+    }
+    return '?';
+  };
+
   return (
     <div className="flex-1 overflow-auto">
       {/* Header */}
@@ -36,7 +45,8 @@ const Dashboard = () => {
             <input type="text" placeholder="Search..." className="pl-8 pr-4 py-1 border rounded-md" />
             <div className="absolute left-2 top-2 text-gray-400">🔍</div>
           </div>
-          <img src="https://via.placeholder.com/32" alt="User" className="h-8 w-8 rounded-full" />
+          {/* Replace external image with a placeholder */}
+          <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center text-xs">AP</div>
           <span className="font-medium">Avantika Patil</span>
         </div>
       </header>
@@ -112,12 +122,12 @@ const Dashboard = () => {
               <div className="h-48 overflow-auto border rounded-md p-2">
                 <ul className="space-y-1">
                   {users.length > 0 ? (
-                    users.map((user) => (
-                      <li key={user.id} className="flex items-center py-1 border-b border-gray-100">
+                    users.map((user, index) => (
+                      <li key={user.id || index} className="flex items-center py-1 border-b border-gray-100">
                         <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 mr-2">
-                          {user.name.charAt(0).toUpperCase()}
+                          {getInitial(user)}
                         </span>
-                        <span>{user.name}</span>
+                        <span>{user.name || 'Unnamed User'}</span>
                       </li>
                     ))
                   ) : (

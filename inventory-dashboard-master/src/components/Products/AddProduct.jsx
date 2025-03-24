@@ -1,4 +1,3 @@
-// src/components/Products/AddProduct.jsx
 import React, { useState } from "react";
 import { createProduct } from "../../services/api";
 
@@ -25,19 +24,21 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Convert price and stockQuantity to numbers
+      // Convert price and stockQuantity to numbers and use PascalCase for .NET
       const productData = {
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        stockQuantity: parseInt(formData.stockQuantity),
-        category: formData.category,
-        imageUrl: formData.imageUrl,
-        isActive: formData.isActive
+        Name: formData.name,
+        Description: formData.description,
+        Price: parseFloat(formData.price),
+        StockQuantity: parseInt(formData.stockQuantity),
+        Category: formData.category,
+        ImageUrl: formData.imageUrl || null,
+        IsActive: formData.isActive
       };
 
       console.log("Sending product data:", productData);
-      await createProduct(productData);
+      const response = await createProduct(productData);
+      console.log("Product created successfully:", response);
+      
       onProductAdded();
       setFormData({
         name: "",
@@ -51,7 +52,38 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
       setError('');
     } catch (err) {
       console.error("Failed to add product:", err);
-      setError('Failed to add product. Please try again.');
+      
+      // Detailed error logging
+      console.error("Error response:", err.response?.data);
+      
+      // Enhanced error handling
+      if (err.response && err.response.data) {
+        if (typeof err.response.data === 'string') {
+          setError(err.response.data);
+        } else if (err.response.data.errors) {
+          // Handle validation errors
+          const errorMessages = [];
+          const errorData = err.response.data.errors;
+          
+          // Extract all error messages
+          Object.keys(errorData).forEach(key => {
+            const messages = errorData[key];
+            if (Array.isArray(messages)) {
+              messages.forEach(msg => errorMessages.push(msg));
+            } else {
+              errorMessages.push(messages);
+            }
+          });
+          
+          setError(errorMessages.join(', '));
+        } else if (err.response.data.title) {
+          setError(err.response.data.title);
+        } else {
+          setError('Failed to add product. Please check your data and try again.');
+        }
+      } else {
+        setError('Failed to add product. Please try again.');
+      }
     }
   };
 
@@ -94,6 +126,7 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
               className="border rounded w-full py-2 px-3"
               type="number"
               step="0.01"
+              min="0"
               name="price"
               value={formData.price}
               onChange={handleChange}
@@ -106,6 +139,7 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
             <input
               className="border rounded w-full py-2 px-3"
               type="number"
+              min="0"
               name="stockQuantity"
               value={formData.stockQuantity}
               onChange={handleChange}
@@ -133,6 +167,7 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
               name="imageUrl"
               value={formData.imageUrl}
               onChange={handleChange}
+              placeholder="http://example.com/image.jpg"
             />
           </div>
 

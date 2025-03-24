@@ -1,122 +1,194 @@
-// src/components/Users/AddUser.jsx
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { createUser } from "../../services/api";
 
-const AddUser = () => {
-  const navigate = useNavigate();
+const AddUser = ({ onUserAdded, onCancel }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'User'
+    customerName: "",
+    email: "",
+    phoneNumber: "",
+    billingAddress: "",
+    shippingAddress: "",
+    latitude: 0,
+    longitude: 0,
+    gstNumber: "",
+    companyName: "",
+    notes: "",
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Here you would typically send this data to your backend API
-    console.log('Submitting user data:', formData);
-    
-    // Redirect to users list after submission
-    alert('User added successfully!');
-    navigate('/users');
+    try {
+      await createUser(formData);
+      onUserAdded();
+      setFormData({
+        customerName: "",
+        email: "",
+        phoneNumber: "",
+        billingAddress: "",
+        shippingAddress: "",
+        latitude: 0,
+        longitude: 0,
+        gstNumber: "",
+        companyName: "",
+        notes: "",
+      });
+    } catch (error) {
+      console.error("Failed to add user:", error);
+    }
   };
 
   return (
-    <div className="p-6 w-full">
-      <h1 className="text-2xl font-bold mb-6">Add New User</h1>
-      
-      <div className="bg-white rounded-lg shadow p-6">
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="name">
-              Full Name
-            </label>
+    <div className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-xl font-semibold mb-4">Add New User</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Customer Name */}
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Customer Name</label>
             <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="name"
+              className="border rounded w-full py-2 px-3"
               type="text"
-              name="name"
-              value={formData.name}
+              name="customerName"
+              value={formData.customerName}
               onChange={handleChange}
-              placeholder="John Doe"
               required
             />
           </div>
-          
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-              Email Address
-            </label>
+
+          {/* Email */}
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Email</label>
             <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="email"
+              className="border rounded w-full py-2 px-3"
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="john@example.com"
               required
             />
           </div>
-          
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-              Password
-            </label>
+
+          {/* Phone Number */}
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Phone Number</label>
             <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
-              id="password"
-              type="password"
-              name="password"
-              value={formData.password}
+              className="border rounded w-full py-2 px-3"
+              type="tel"
+              name="phoneNumber"
+              value={formData.phoneNumber}
               onChange={handleChange}
-              placeholder="******************"
               required
             />
           </div>
-          
-          <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="role">
-              Role
-            </label>
-            <select
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              id="role"
-              name="role"
-              value={formData.role}
+
+          {/* Billing Address */}
+          <div className="md:col-span-2">
+            <label className="block text-gray-700 font-bold mb-2">Billing Address</label>
+            <textarea
+              className="border rounded w-full py-2 px-3"
+              name="billingAddress"
+              rows="3"
+              value={formData.billingAddress}
               onChange={handleChange}
-            >
-              <option value="User">User</option>
-              <option value="Admin">Admin</option>
-              <option value="Manager">Manager</option>
-            </select>
+              required
+            ></textarea>
           </div>
-          
-          <div className="flex items-center justify-between">
-            <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              type="submit"
-            >
-              Add User
-            </button>
-            <button
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              type="button"
-              onClick={() => navigate('/users')}
-            >
-              Cancel
-            </button>
+
+          {/* Shipping Address */}
+          <div className="md:col-span-2">
+            <label className="block text-gray-700 font-bold mb-2">Shipping Address</label>
+            <textarea
+              className="border rounded w-full py-2 px-3"
+              name="shippingAddress"
+              rows="3"
+              value={formData.shippingAddress}
+              onChange={handleChange}
+              required
+            ></textarea>
           </div>
-        </form>
-      </div>
+
+          {/* Latitude and Longitude */}
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Latitude</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="number"
+              step="0.000001"
+              name="latitude"
+              value={formData.latitude}
+              onChange={handleChange}
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Longitude</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="number"
+              step="0.000001"
+              name="longitude"
+              value={formData.longitude}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* GST Number */}
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">GST Number</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="text"
+              name="gstNumber"
+              value={formData.gstNumber}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* Company Name */}
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Company Name</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="text"
+              name="companyName"
+              value={formData.companyName}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* Notes */}
+          <div className="md:col-span-2">
+            <label className="block text-gray-700 font-bold mb-2">Notes</label>
+            <textarea
+              className="border rounded w-full py-2 px-3"
+              name="notes"
+              rows="3"
+              value={formData.notes}
+              onChange={handleChange}
+            ></textarea>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <button className="bg-green-500 text-white py-2 px-4 rounded mr-2" type="submit">
+            Add User
+          </button>
+          <button
+            className="bg-gray-500 text-white py-2 px-4 rounded"
+            type="button"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

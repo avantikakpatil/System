@@ -1,9 +1,9 @@
-// Controllers/ProductsController.cs
+using Microsoft.AspNetCore.Mvc;
+using inventory_api.Services;
 using System;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using inventory_api.Models.DTOs;
-using inventory_api.Services;
 
 namespace inventory_api.Controllers
 {
@@ -15,31 +15,49 @@ namespace inventory_api.Controllers
         
         public ProductsController(IProductService productService)
         {
-            _productService = productService;
+            _productService = productService ?? throw new ArgumentNullException(nameof(productService));
         }
         
         [HttpGet]
-        public async Task<IActionResult> GetAllProducts()
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetProducts()
         {
-            var products = await _productService.GetAllProductsAsync();
-            return Ok(products);
+            try
+            {
+                var products = await _productService.GetAllProductsAsync();
+                return Ok(products);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving products", details = ex.Message });
+            }
         }
         
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetProduct(int id)
+        public async Task<ActionResult<ProductDto>> GetProduct(int id)
         {
-            var product = await _productService.GetProductByIdAsync(id);
-            if (product == null)
+            try
             {
-                return NotFound();
+                var product = await _productService.GetProductByIdAsync(id);
+                return Ok(product);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving the product", details = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateProduct([FromBody] CreateProductDto createProductDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState); // Return validation errors
             }
             
-            return Ok(product);
-        }
-        
-        [HttpPost]
-        public async Task<IActionResult> CreateProduct(CreateProductDto createProductDto)
-        {
             try
             {
                 var newProduct = await _productService.CreateProductAsync(createProductDto);
@@ -47,39 +65,48 @@ namespace inventory_api.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = "An error occurred while creating the product", details = ex.Message });
             }
         }
         
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct(int id, CreateProductDto updateProductDto)
+        public async Task<IActionResult> UpdateProduct(int id, [FromBody] CreateProductDto updateProductDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            
             try
             {
-                var product = await _productService.UpdateProductAsync(id, updateProductDto);
-                if (product == null)
-                {
-                    return NotFound();
-                }
-                
-                return Ok(product);
+                var updatedProduct = await _productService.UpdateProductAsync(id, updateProductDto);
+                return Ok(updatedProduct);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = "An error occurred while updating the product", details = ex.Message });
             }
         }
         
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            var result = await _productService.DeleteProductAsync(id);
-            if (!result)
+            try
             {
-                return NotFound();
+                var result = await _productService.DeleteProductAsync(id);
+                if (result)
+                    return NoContent();
+                else
+                    return NotFound(new { message = $"Product with ID {id} not found" });
             }
-            
-            return NoContent();
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while deleting the product", details = ex.Message });
+            }
         }
     }
 }
