@@ -95,9 +95,10 @@ export const deleteProduct = async (id) => {
 export const getUsers = async () => {
   try {
     const response = await api.get('/users');
+    // Assuming the response is the raw data string
     return response.data;
   } catch (error) {
-    console.error('Error fetching users:', error.response?.data?.message || error.message);
+    console.error('Error fetching users:', error);
     throw error;
   }
 };
@@ -125,13 +126,46 @@ export const fetchUsers = async () => {
 export const createUser = async (userData) => {
   try {
     console.log("Creating user with data:", userData);
+    
+    // Validate email
+    if (!userData.Email) {
+      throw new Error('Email is required');
+    }
+
+    // Normalize email validation
+    const normalizedEmail = userData.Email.trim().toLowerCase();
+    if (!isValidEmail(normalizedEmail)) {
+      throw new Error('Invalid email address');
+    }
+
+    // Add the normalized email back to userData
+    userData.Email = normalizedEmail;
+
     const response = await api.post('/users', userData);
     return response.data;
   } catch (error) {
-    console.error("Error creating user:", error.response?.data || error.message);
-    throw error;
+    // More robust error handling
+    if (error.response) {
+      // Server responded with an error
+      console.error("Server Error:", error.response.data);
+      throw new Error(error.response.data.message || 'Failed to create user');
+    } else if (error.request) {
+      // Request was made but no response received
+      console.error("Network Error:", error.request);
+      throw new Error('No response from server');
+    } else {
+      // Something happened in setting up the request
+      console.error("Error:", error.message);
+      throw error;
+    }
   }
 };
+
+// Email validation helper function
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
 
 // Update an existing user
 export const updateUser = async (userId, userData) => {
