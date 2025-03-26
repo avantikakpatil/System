@@ -1,20 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUsers, getProducts, createOrder } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';  // Assume an auth context exists
 
 const CreateOrder = () => {
-    const { user } = useAuth();  // Get current user from auth context
-    const navigate = useNavigate();
-
-    // Check if user is an admin, redirect if not
-    useEffect(() => {
-        if (!user || user.role !== 'ADMIN') {
-            navigate('/unauthorized');  // Redirect to unauthorized page
-            return;
-        }
-    }, [user, navigate]);
-
     const [users, setUsers] = useState([]);
     const [products, setProducts] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState('');
@@ -22,72 +10,46 @@ const CreateOrder = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const navigate = useNavigate();
 
-    // Fetch users and products (only for admins)
     useEffect(() => {
-        if (user?.role !== 'ADMIN') return;
-
         const fetchData = async () => {
             try {
                 const [usersData, productsData] = await Promise.all([
                     getUsers(),
                     getProducts()
                 ]);
-
-                // Filter out inactive or blocked users
-                const activeUsers = usersData.filter(u => u.status === 'ACTIVE');
-                
-                setUsers(activeUsers);
-                setProducts(
-                    productsData
-                        .filter(p => p.stockQuantity > 0 && p.status === 'AVAILABLE')
-                );
+                setUsers(usersData);
+                setProducts(productsData.filter(p => p.stockQuantity > 0));
                 setLoading(false);
             } catch (err) {
-                console.error('Data fetch error:', err);
-                setError('Unable to load order creation data');
+                setError(err.message);
                 setLoading(false);
             }
         };
 
         fetchData();
-    }, [user]);
+    }, []);
 
     const handleAddItem = () => {
-        if (orderItems.length < 10) {
-            setOrderItems([...orderItems, { productId: '', quantity: 1 }]);
-        } else {
-            setError('Maximum of 10 products per order');
-        }
+        setOrderItems([...orderItems, { productId: '', quantity: 1 }]);
     };
 
     const handleRemoveItem = (index) => {
-        if (orderItems.length > 1) {
-            const newItems = orderItems.filter((_, i) => i !== index);
-            setOrderItems(newItems);
-        }
+        if (orderItems.length <= 1) return;
+        const newItems = [...orderItems];
+        newItems.splice(index, 1);
+        setOrderItems(newItems);
     };
 
     const handleItemChange = (index, field, value) => {
         const newItems = [...orderItems];
-        newItems[index] = {
-            ...newItems[index],
-            [field]: field === 'quantity' 
-                ? Math.max(1, Math.min(parseInt(value) || 1, 100))
-                : value
-        };
+        newItems[index][field] = field === 'quantity' ? parseInt(value) || 0 : value;
         setOrderItems(newItems);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        // Double-check admin authorization
-        if (!user || user.role !== 'ADMIN') {
-            setError('Unauthorized: Only admins can create orders');
-            return;
-        }
-
         setSubmitting(true);
         setError(null);
         
@@ -97,58 +59,34 @@ const CreateOrder = () => {
             return;
         }
 
-        const invalidItems = orderItems.filter(
-            item => !item.productId || item.quantity <= 0 || item.quantity > 100
-        );
-
-        if (invalidItems.length > 0) {
-            setError('Please ensure all products have valid quantities (1-100)');
+        if (orderItems.some(item => !item.productId || item.quantity <= 0)) {
+            setError('Please fill all product fields with valid quantities');
             setSubmitting(false);
             return;
         }
 
         try {
             const orderData = {
-                userId: parseInt(selectedUserId, 10),
-                adminId: user.id,  // Include admin ID who created the order
-                orderItems: orderItems.map(item => ({
-                    productId: parseInt(item.productId, 10),
-                    quantity: parseInt(item.quantity, 10)
-                })),
-                source: 'ADMIN_CREATED'  // Mark order as admin-created
+                CustomerId: parseInt(selectedUserId),
+                OrderItems: orderItems.map(item => ({
+                    ProductId: parseInt(item.productId),
+                    Quantity: item.quantity
+                }))
             };
 
-            const response = await createOrder(orderData);
-
-            if (response && response.id) {
-                // Optionally add a success toast/notification
-                navigate('/orders');
-            } else {
-                throw new Error('Order creation failed');
-            }
+            await createOrder(orderData);
+            navigate('/orders');
         } catch (err) {
-            console.error('Order submission error:', err);
-            setError(
-                err.response?.data?.message || 
-                err.message || 
-                'Failed to create order. Please try again.'
-            );
+            setError(err.response?.data?.message || err.message || 'Failed to create order');
             setSubmitting(false);
         }
     };
-
-    // If not an admin, show nothing
-    if (!user || user.role !== 'ADMIN') {
-        return null;
-    }
 
     if (loading) return <div className="text-center py-8">Loading...</div>;
 
     return (
         <div className="container mx-auto p-4 max-w-4xl">
-            <h1 className="text-2xl font-bold mb-6 flex items-center">
-                <span className="mr-2">🛒</span> Create Order (Admin)
-            </h1>
+            <h1 className="text-2xl font-bold mb-6">Create New Order</h1>
             
             {error && (
                 <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">

@@ -182,7 +182,6 @@ export const createOrder = async (orderData) => {
   try {
     const response = await api.post('/orders', {
       CustomerId: orderData.CustomerId,
-      Notes: orderData.Notes || '',
       OrderItems: orderData.OrderItems.map(item => ({
         ProductId: item.ProductId,
         Quantity: item.Quantity
