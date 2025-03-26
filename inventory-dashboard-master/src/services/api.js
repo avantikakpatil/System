@@ -157,7 +157,7 @@ export const deleteUser = async (userId) => {
 
 // Add these methods to your existing api.js file
 
-// Orders API
+// In api.js
 export const getOrders = async () => {
   try {
     const response = await api.get("/orders");
@@ -180,13 +180,7 @@ export const getOrderById = async (id) => {
 
 export const createOrder = async (orderData) => {
   try {
-    const response = await api.post('/orders', {
-      CustomerId: orderData.CustomerId,
-      OrderItems: orderData.OrderItems.map(item => ({
-        ProductId: item.ProductId,
-        Quantity: item.Quantity
-      }))
-    });
+    const response = await api.post('/orders', orderData);
     return response.data;
   } catch (error) {
     console.error('Error creating order:', error.response ? error.response.data : error.message);
@@ -196,7 +190,7 @@ export const createOrder = async (orderData) => {
 
 export const updateOrderStatus = async (orderId, status) => {
   try {
-    const response = await api.put(`/orders/${orderId}/status`, status);
+    const response = await api.put(`/orders/${orderId}/status`, { status });
     return response.data;
   } catch (error) {
     console.error(`Error updating order ${orderId} status:`, error.response ? error.response.data : error.message);
@@ -213,6 +207,7 @@ export const deleteOrder = async (orderId) => {
     throw error;
   }
 };
+
 
 
 
