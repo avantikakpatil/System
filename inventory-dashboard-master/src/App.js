@@ -1,10 +1,10 @@
-// src/App.js
 import React, { useState } from 'react';
 import './App.css';
 import Sidebar from './components/Sidebar/Sidebar';
 import Dashboard from './components/Dashboard/Dashboard';
 import Users from './components/Users/Users';
 import Products from './components/Products/Products';
+import Orders from './components/Orders/Orders';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -21,6 +21,8 @@ function App() {
         return <Users />;
       case 'products':
         return <Products />;
+      case 'orders':  // ✅ Added this case
+        return <Orders />;
       default:
         return <Dashboard />;
     }

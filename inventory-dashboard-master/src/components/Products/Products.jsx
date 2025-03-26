@@ -16,6 +16,11 @@ const Products = () => {
         category: "",
         imageUrl: "",
         isActive: true,
+        minimumOrderQuantity: 0,
+        productCode: "",
+        supplierName: "",
+        volume: "0.000000000000000000000000000000",
+        weight: "0.000000000000000000000000000000"
     });
 
     useEffect(() => {
@@ -45,61 +50,65 @@ const Products = () => {
     };
 
     const handleSubmit = async (e) => {
-      e.preventDefault();
+        e.preventDefault();
   
-      // Validate required fields
-      if (!formData.name || !formData.description || !formData.price || !formData.stockQuantity) {
-          setError("Please fill out all required fields.");
-          return;
-      }
+        // Validate required fields
+        if (!formData.name || !formData.description || !formData.price || !formData.stockQuantity) {
+            setError("Please fill out all required fields.");
+            return;
+        }
   
-      // Ensure price is greater than 0.01
-      if (parseFloat(formData.price) <= 0.01) {
-          setError("Price must be greater than 0.01.");
-          return;
-      }
+        // Ensure price is greater than 0.01
+        if (parseFloat(formData.price) <= 0.01) {
+            setError("Price must be greater than 0.01.");
+            return;
+        }
   
-      // Ensure stock quantity is a positive number
-      if (parseInt(formData.stockQuantity, 10) < 0) {
-          setError("Stock quantity must be a positive number.");
-          return;
-      }
+        // Ensure stock quantity is a positive number
+        if (parseInt(formData.stockQuantity, 10) < 0) {
+            setError("Stock quantity must be a positive number.");
+            return;
+        }
   
-      try {
-          const productData = {
-              Name: formData.name,
-              Description: formData.description,
-              Price: parseFloat(formData.price),
-              StockQuantity: parseInt(formData.stockQuantity, 10),
-              Category: formData.category,
-              ImageUrl: formData.imageUrl,
-              IsActive: formData.isActive,
-          };
+        try {
+            const productData = {
+                Name: formData.name,
+                Description: formData.description,
+                Price: parseFloat(formData.price),
+                StockQuantity: parseInt(formData.stockQuantity, 10),
+                Category: formData.category,
+                ImageUrl: formData.imageUrl,
+                IsActive: formData.isActive,
+                MinimumOrderQuantity: parseInt(formData.minimumOrderQuantity, 10) || 0,
+                ProductCode: formData.productCode,
+                SupplierName: formData.supplierName,
+                Volume: parseFloat(formData.volume) || 0,
+                Weight: parseFloat(formData.weight) || 0
+            };
   
-          console.log('Creating product with data:', JSON.stringify(productData, null, 2));
+            console.log('Creating product with data:', JSON.stringify(productData, null, 2));
   
-          if (editingProduct) {
-              await updateProduct(editingProduct.id, productData);
-          } else {
-              await createProduct(productData);
-          }
+            if (editingProduct) {
+                await updateProduct(editingProduct.id, productData);
+            } else {
+                await createProduct(productData);
+            }
   
-          await fetchProducts();
-          setShowAddForm(false);
-          setEditingProduct(null);
-          resetForm();
-      } catch (err) {
-          if (err.response && err.response.data && err.response.data.errors) {
-              // Handle validation errors
-              const errorMessages = Object.values(err.response.data.errors).flat();
-              setError(errorMessages.join(', '));
-          } else {
-              setError("Failed to save product. Please check your data and try again.");
-          }
-          console.error(err);
-      }
-  };
-
+            await fetchProducts();
+            setShowAddForm(false);
+            setEditingProduct(null);
+            resetForm();
+        } catch (err) {
+            if (err.response && err.response.data && err.response.data.errors) {
+                // Handle validation errors
+                const errorMessages = Object.values(err.response.data.errors).flat();
+                setError(errorMessages.join(', '));
+            } else {
+                setError("Failed to save product. Please check your data and try again.");
+            }
+            console.error(err);
+        }
+    };
   
     const resetForm = () => {
         setFormData({
@@ -110,6 +119,11 @@ const Products = () => {
             category: "",
             imageUrl: "",
             isActive: true,
+            minimumOrderQuantity: 0,
+            productCode: "",
+            supplierName: "",
+            volume: "0.000000000000000000000000000000",
+            weight: "0.000000000000000000000000000000"
         });
     };
 
@@ -123,6 +137,11 @@ const Products = () => {
             category: product.Category,
             imageUrl: product.ImageUrl || "",
             isActive: product.IsActive,
+            minimumOrderQuantity: product.MinimumOrderQuantity || 0,
+            productCode: product.ProductCode || "",
+            supplierName: product.SupplierName || "",
+            volume: product.Volume ? product.Volume.toFixed(30) : "0.000000000000000000000000000000",
+            weight: product.Weight ? product.Weight.toFixed(30) : "0.000000000000000000000000000000"
         });
         setShowAddForm(true);
     };
@@ -152,7 +171,10 @@ const Products = () => {
                     <button
                         className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
                         onClick={() => {
-                            setShowAddForm(!showAddForm);
+                            // Always toggle form visibility
+                            setShowAddForm(prev => !prev);
+                            
+                            // If closing the form, reset editing state and form
                             if (showAddForm) {
                                 setEditingProduct(null);
                                 resetForm();
@@ -163,6 +185,7 @@ const Products = () => {
                     </button>
                 </div>
 
+                {/* Add Product Form */}
                 {showAddForm && (
                     <div className="mb-6 p-4 border rounded bg-gray-50">
                         <h3 className="text-lg font-medium mb-4">
@@ -170,58 +193,24 @@ const Products = () => {
                         </h3>
                         <form onSubmit={handleSubmit}>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-    <label className="block text-gray-700 font-bold mb-2">Product Name</label>
-    <input
-        className="border rounded w-full py-2 px-3"
-        type="text"
-        name="name"
-        value={formData.name}
-        onChange={handleChange}
-        required
-    />
-</div>
+                                {/* Form fields as in previous implementation */}
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Product Name</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="text"
+                                        name="name"
+                                        value={formData.name}
+                                        onChange={handleChange}
+                                        required
+                                        maxLength={100}
+                                    />
+                                </div>
 
-<div>
-    <label className="block text-gray-700 font-bold mb-2">Description</label>
-    <textarea
-        className="border rounded w-full py-2 px-3"
-        name="description"
-        rows="3"
-        value={formData.description}
-        onChange={handleChange}
-        required
-    ></textarea>
-</div>
 
-<div>
-    <label className="block text-gray-700 font-bold mb-2">Price</label>
-    <input
-        className="border rounded w-full py-2 px-3"
-        type="number"
-        step="0.01"
-        min="0.01" // Ensure price is greater than 0.01
-        name="price"
-        value={formData.price}
-        onChange={handleChange}
-        required
-    />
-</div>
 
-<div>
-    <label className="block text-gray-700 font-bold mb-2">Stock Quantity</label>
-    <input
-        className="border rounded w-full py-2 px-3"
-        type="number"
-        min="0" // Ensure stock quantity is non-negative
-        name="stockQuantity"
-        value={formData.stockQuantity}
-        onChange={handleChange}
-        required
-    />
-</div>
 
-                                <div className="md:col-span-2">
+                                <div>
                                     <label className="block text-gray-700 font-bold mb-2">Description</label>
                                     <textarea
                                         className="border rounded w-full py-2 px-3"
@@ -230,7 +219,47 @@ const Products = () => {
                                         value={formData.description}
                                         onChange={handleChange}
                                         required
+                                        maxLength={500}
                                     ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Price</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        name="price"
+                                        value={formData.price}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Stock Quantity</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="number"
+                                        min="0"
+                                        name="stockQuantity"
+                                        value={formData.stockQuantity}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Category</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="text"
+                                        name="category"
+                                        value={formData.category}
+                                        onChange={handleChange}
+                                        maxLength={100}
+                                    />
                                 </div>
 
                                 <div>
@@ -240,6 +269,67 @@ const Products = () => {
                                         type="text"
                                         name="imageUrl"
                                         value={formData.imageUrl}
+                                        onChange={handleChange}
+                                        maxLength={255}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Minimum Order Quantity</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="number"
+                                        min="0"
+                                        name="minimumOrderQuantity"
+                                        value={formData.minimumOrderQuantity}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Product Code</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="text"
+                                        name="productCode"
+                                        value={formData.productCode}
+                                        onChange={handleChange}
+                                        maxLength={50}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Supplier Name</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="text"
+                                        name="supplierName"
+                                        value={formData.supplierName}
+                                        onChange={handleChange}
+                                        maxLength={100}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Volume</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="number"
+                                        step="0.000000000000000000000000000001"
+                                        name="volume"
+                                        value={formData.volume}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 font-bold mb-2">Weight</label>
+                                    <input
+                                        className="border rounded w-full py-2 px-3"
+                                        type="number"
+                                        step="0.000000000000000000000000000001"
+                                        name="weight"
+                                        value={formData.weight}
                                         onChange={handleChange}
                                     />
                                 </div>
@@ -257,7 +347,10 @@ const Products = () => {
                             </div>
 
                             <div className="mt-4">
-                                <button className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded mr-2" type="submit">
+                                <button 
+                                    className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded mr-2" 
+                                    type="submit"
+                                >
                                     {editingProduct ? "Update Product" : "Add Product"}
                                 </button>
                                 <button
@@ -276,16 +369,20 @@ const Products = () => {
                     </div>
                 )}
 
-                {products.length > 0 ? (
+
+            {/* Products Table */}
+            {products.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="min-w-full bg-white border rounded">
                             <thead>
                                 <tr className="bg-gray-100 text-gray-600 uppercase text-sm">
                                     <th className="py-3 px-6">ID</th>
+                                    <th className="py-3 px-6">Product Code</th>
                                     <th className="py-3 px-6">Name</th>
                                     <th className="py-3 px-6">Category</th>
                                     <th className="py-3 px-6">Price</th>
                                     <th className="py-3 px-6">Stock</th>
+                                    <th className="py-3 px-6">Supplier</th>
                                     <th className="py-3 px-6">Status</th>
                                     <th className="py-3 px-6 text-center">Actions</th>
                                 </tr>
@@ -294,10 +391,12 @@ const Products = () => {
                                 {products.map((product) => (
                                     <tr key={product.id} className="border-b hover:bg-gray-50">
                                         <td className="py-3 px-6">{product.id}</td>
+                                        <td className="py-3 px-6">{product.productCode}</td>
                                         <td className="py-3 px-6">{product.name}</td>
                                         <td className="py-3 px-6">{product.category}</td>
                                         <td className="py-3 px-6">${product.price.toFixed(2)}</td>
                                         <td className="py-3 px-6">{product.stockQuantity}</td>
+                                        <td className="py-3 px-6">{product.supplierName}</td>
                                         <td className="py-3 px-6">
                                             <span
                                                 className={`py-1 px-2 rounded text-xs ${

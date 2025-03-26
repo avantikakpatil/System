@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using inventory_api.Models;
 using inventory_api.Models.DTOs;
 
 namespace inventory_api.Services

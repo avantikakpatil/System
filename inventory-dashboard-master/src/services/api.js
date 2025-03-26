@@ -31,24 +31,26 @@ export const getProductById = async (id) => {
   }
 };
 
+// In api.js
 export const createProduct = async (productData) => {
   try {
-    const payload = {
+    const response = await api.post('/products', {
       Name: productData.Name,
-      Description: productData.Description || "",
-      Price: parseFloat(productData.Price),
-      StockQuantity: parseInt(productData.StockQuantity, 10),
-      Category: productData.Category || "Uncategorized",
-      ImageUrl: productData.ImageUrl || "",
-      IsActive: productData.IsActive ?? true,
-    };
-
-    console.log("Creating product:", JSON.stringify(payload, null, 2));
-
-    const response = await api.post("/products", payload);
+      Description: productData.Description,
+      Price: productData.Price,
+      StockQuantity: productData.StockQuantity,
+      Category: productData.Category,
+      ImageUrl: productData.ImageUrl,
+      IsActive: productData.IsActive,
+      MinimumOrderQuantity: productData.MinimumOrderQuantity || 0,
+      ProductCode: productData.ProductCode,
+      SupplierName: productData.SupplierName,
+      Volume: productData.Volume || 0,
+      Weight: productData.Weight || 0
+    });
     return response.data;
   } catch (error) {
-    console.error("Error creating product:", error.response?.data || error.message);
+    console.error('Error creating product:', error.response ? error.response.data : error.message);
     throw error;
   }
 };
@@ -152,6 +154,68 @@ export const deleteUser = async (userId) => {
     throw error;
   }
 };
+
+// Add these methods to your existing api.js file
+
+// Orders API
+export const getOrders = async () => {
+  try {
+    const response = await api.get("/orders");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    throw error;
+  }
+};
+
+export const getOrderById = async (id) => {
+  try {
+    const response = await api.get(`/orders/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching order ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createOrder = async (orderData) => {
+  try {
+    const response = await api.post('/orders', {
+      CustomerId: orderData.CustomerId,
+      Notes: orderData.Notes || '',
+      OrderItems: orderData.OrderItems.map(item => ({
+        ProductId: item.ProductId,
+        Quantity: item.Quantity
+      }))
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error creating order:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+export const updateOrderStatus = async (orderId, status) => {
+  try {
+    const response = await api.put(`/orders/${orderId}/status`, status);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating order ${orderId} status:`, error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+export const deleteOrder = async (orderId) => {
+  try {
+    await api.delete(`/orders/${orderId}`);
+    return { message: "Order deleted successfully" };
+  } catch (error) {
+    console.error(`Error deleting order ${orderId}:`, error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+
 
 // Email validation helper function
 function isValidEmail(email) {

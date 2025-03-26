@@ -4,14 +4,31 @@ import { createProduct } from "../../services/api";
 const AddProduct = ({ onProductAdded, onCancel }) => {
   const [formData, setFormData] = useState({
     name: "",
+    productCode: "",
     description: "",
-    price: 0,
-    stockQuantity: 0,
     category: "",
+    price: 0,
+    weight: 0,
+    volume: 0,
+    stockQuantity: 0,
+    minimumOrderQuantity: 1,
+    supplierName: "",
     imageUrl: "",
     isActive: true
   });
+  
   const [error, setError] = useState('');
+  const [image, setImage] = useState(null);
+
+  const categories = [
+    "Electronics", 
+    "Clothing", 
+    "Books", 
+    "Home & Kitchen", 
+    "Toys", 
+    "Sports", 
+    "Other"
+  ];
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -21,16 +38,33 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
     }));
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Here you would typically upload to a cloud storage service
+      // For now, we'll just set the image and create a local URL
+      setImage(file);
+      setFormData(prev => ({
+        ...prev,
+        imageUrl: URL.createObjectURL(file)
+      }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Convert price and stockQuantity to numbers and use PascalCase for .NET
       const productData = {
         Name: formData.name,
+        ProductCode: formData.productCode,
         Description: formData.description,
-        Price: parseFloat(formData.price),
-        StockQuantity: parseInt(formData.stockQuantity),
         Category: formData.category,
+        Price: parseFloat(formData.price),
+        Weight: parseFloat(formData.weight),
+        Volume: parseFloat(formData.volume),
+        StockQuantity: parseInt(formData.stockQuantity),
+        MinimumOrderQuantity: parseInt(formData.minimumOrderQuantity),
+        SupplierName: formData.supplierName,
         ImageUrl: formData.imageUrl || null,
         IsActive: formData.isActive
       };
@@ -42,10 +76,15 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
       onProductAdded();
       setFormData({
         name: "",
+        productCode: "",
         description: "",
-        price: 0,
-        stockQuantity: 0,
         category: "",
+        price: 0,
+        weight: 0,
+        volume: 0,
+        stockQuantity: 0,
+        minimumOrderQuantity: 1,
+        supplierName: "",
         imageUrl: "",
         isActive: true
       });
@@ -53,19 +92,14 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
     } catch (err) {
       console.error("Failed to add product:", err);
       
-      // Detailed error logging
-      console.error("Error response:", err.response?.data);
-      
       // Enhanced error handling
       if (err.response && err.response.data) {
         if (typeof err.response.data === 'string') {
           setError(err.response.data);
         } else if (err.response.data.errors) {
-          // Handle validation errors
           const errorMessages = [];
           const errorData = err.response.data.errors;
           
-          // Extract all error messages
           Object.keys(errorData).forEach(key => {
             const messages = errorData[key];
             if (Array.isArray(messages)) {
@@ -110,18 +144,35 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
           </div>
 
           <div>
-            <label className="block text-gray-700 font-bold mb-2">Category</label>
+            <label className="block text-gray-700 font-bold mb-2">Product Code</label>
             <input
               className="border rounded w-full py-2 px-3"
               type="text"
-              name="category"
-              value={formData.category}
+              name="productCode"
+              value={formData.productCode}
               onChange={handleChange}
+              required
             />
           </div>
 
           <div>
-            <label className="block text-gray-700 font-bold mb-2">Price</label>
+            <label className="block text-gray-700 font-bold mb-2">Category</label>
+            <select
+              className="border rounded w-full py-2 px-3"
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Category</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Price (per unit)</label>
             <input
               className="border rounded w-full py-2 px-3"
               type="number"
@@ -129,6 +180,34 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
               min="0"
               name="price"
               value={formData.price}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Weight (kg)</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="number"
+              step="0.01"
+              min="0"
+              name="weight"
+              value={formData.weight}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Volume (m³)</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="number"
+              step="0.0001"
+              min="0"
+              name="volume"
+              value={formData.volume}
               onChange={handleChange}
               required
             />
@@ -147,6 +226,48 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
             />
           </div>
 
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Minimum Order Quantity</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="number"
+              min="1"
+              name="minimumOrderQuantity"
+              value={formData.minimumOrderQuantity}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Supplier Name</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="text"
+              name="supplierName"
+              value={formData.supplierName}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">Product Image</label>
+            <input
+              className="border rounded w-full py-2 px-3"
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+            />
+            {formData.imageUrl && (
+              <img 
+                src={formData.imageUrl} 
+                alt="Product Preview" 
+                className="mt-2 h-24 w-24 object-cover"
+              />
+            )}
+          </div>
+
           <div className="md:col-span-2">
             <label className="block text-gray-700 font-bold mb-2">Description</label>
             <textarea
@@ -157,18 +278,6 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
               onChange={handleChange}
               required
             ></textarea>
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">Image URL</label>
-            <input
-              className="border rounded w-full py-2 px-3"
-              type="text"
-              name="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleChange}
-              placeholder="http://example.com/image.jpg"
-            />
           </div>
 
           <div className="flex items-center">
@@ -184,7 +293,10 @@ const AddProduct = ({ onProductAdded, onCancel }) => {
         </div>
 
         <div className="mt-4">
-          <button className="bg-green-500 text-white py-2 px-4 rounded mr-2" type="submit">
+          <button 
+            className="bg-green-500 text-white py-2 px-4 rounded mr-2" 
+            type="submit"
+          >
             Add Product
           </button>
           <button

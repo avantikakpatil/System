@@ -12,6 +12,9 @@ namespace inventory_api.Data
         {
         }
 
+        public DbSet<Order> Orders { get; set; }
+public DbSet<OrderItem> OrderItems { get; set; }
+
         public DbSet<User> Users { get; set; }
         public DbSet<Product> Products { get; set; } // Ensure this line exists
 
