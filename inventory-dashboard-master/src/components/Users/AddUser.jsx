@@ -8,12 +8,54 @@ const AddUser = ({ onUserAdded, onCancel }) => {
     phoneNumber: "",
     billingAddress: "",
     shippingAddress: "",
-    latitude: 0,
-    longitude: 0,
     gstNumber: "",
     companyName: "",
     notes: "",
   });
+
+  const [geocodingError, setGeocodingError] = useState(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
+  // Geocoding function
+  const geocodeAddress = async (address) => {
+    if (!address) return null;
+
+    setIsGeocoding(true);
+    setGeocodingError(null);
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=${encodeURIComponent(address)}`,
+        {
+          headers: {
+            'User-Agent': 'CustomerManagementApp/1.0 (your-contact-email@example.com)'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Geocoding request failed');
+      }
+
+      const data = await response.json();
+
+      if (data.length > 0) {
+        return {
+          latitude: parseFloat(data[0].lat),
+          longitude: parseFloat(data[0].lon)
+        };
+      } else {
+        setGeocodingError("Could not find coordinates for the given address");
+        return null;
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      setGeocodingError("Error finding coordinates. Please check the address.");
+      return null;
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -25,8 +67,25 @@ const AddUser = ({ onUserAdded, onCancel }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Attempt to geocode the shipping address
+    const coordinates = await geocodeAddress(formData.shippingAddress);
+    
+    if (!coordinates) {
+      // Prevent form submission if geocoding fails
+      setGeocodingError("Please provide a valid shipping address");
+      return;
+    }
+
+    // Update formData with coordinates
+    const finalFormData = {
+      ...formData,
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude
+    };
+
     try {
-      await createUser(formData);
+      await createUser(finalFormData);
       onUserAdded();
       setFormData({
         customerName: "",
@@ -34,8 +93,6 @@ const AddUser = ({ onUserAdded, onCancel }) => {
         phoneNumber: "",
         billingAddress: "",
         shippingAddress: "",
-        latitude: 0,
-        longitude: 0,
         gstNumber: "",
         companyName: "",
         notes: "",
@@ -89,6 +146,26 @@ const AddUser = ({ onUserAdded, onCancel }) => {
             />
           </div>
 
+          {/* Shipping Address */}
+          <div className="md:col-span-2">
+            <label className="block text-gray-700 font-bold mb-2">Shipping Address</label>
+            <textarea
+              className="border rounded w-full py-2 px-3"
+              name="shippingAddress"
+              rows="3"
+              value={formData.shippingAddress}
+              onChange={handleChange}
+              required
+              placeholder="Enter full address (e.g., 123 MG Road, Pune, Maharashtra, India)"
+            ></textarea>
+            {isGeocoding && (
+              <p className="text-blue-500 mt-2">Finding coordinates...</p>
+            )}
+            {geocodingError && (
+              <p className="text-red-500 mt-2">{geocodingError}</p>
+            )}
+          </div>
+
           {/* Billing Address */}
           <div className="md:col-span-2">
             <label className="block text-gray-700 font-bold mb-2">Billing Address</label>
@@ -100,43 +177,6 @@ const AddUser = ({ onUserAdded, onCancel }) => {
               onChange={handleChange}
               required
             ></textarea>
-          </div>
-
-          {/* Shipping Address */}
-          <div className="md:col-span-2">
-            <label className="block text-gray-700 font-bold mb-2">Shipping Address</label>
-            <textarea
-              className="border rounded w-full py-2 px-3"
-              name="shippingAddress"
-              rows="3"
-              value={formData.shippingAddress}
-              onChange={handleChange}
-              required
-            ></textarea>
-          </div>
-
-          {/* Latitude and Longitude */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">Latitude</label>
-            <input
-              className="border rounded w-full py-2 px-3"
-              type="number"
-              step="0.000001"
-              name="latitude"
-              value={formData.latitude}
-              onChange={handleChange}
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">Longitude</label>
-            <input
-              className="border rounded w-full py-2 px-3"
-              type="number"
-              step="0.000001"
-              name="longitude"
-              value={formData.longitude}
-              onChange={handleChange}
-            />
           </div>
 
           {/* GST Number */}
@@ -177,7 +217,11 @@ const AddUser = ({ onUserAdded, onCancel }) => {
         </div>
 
         <div className="mt-4">
-          <button className="bg-green-500 text-white py-2 px-4 rounded mr-2" type="submit">
+          <button 
+            className="bg-green-500 text-white py-2 px-4 rounded mr-2" 
+            type="submit"
+            disabled={isGeocoding}
+          >
             Add User
           </button>
           <button

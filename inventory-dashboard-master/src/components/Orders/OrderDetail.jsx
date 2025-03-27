@@ -29,36 +29,47 @@ const OrderDetail = () => {
     const newStatus = e.target.value;
     
     try {
-      // Prepare the full order DTO for update
-      const updatedOrder = {
-        ...order,
-        orderStatus: newStatus
-      };
-
-      console.log('Full Order Update Payload:', updatedOrder);
-
-      // Send the full order DTO
-      const response = await api.put(`/orders/${id}`, updatedOrder);
+      const response = await api.put(`/orders/${id}/status`, { status: newStatus });
       
-      console.log('Status Update Response:', response.data);
-      
-      // Update local state with the response from server
-      setOrder(prevOrder => ({
-        ...prevOrder,
-        orderStatus: newStatus
-      }));
+      // Update the entire order object with the response
+      setOrder(response.data);
     } catch (err) {
       console.error('Status Update Error:', {
         status: err.response?.status,
         data: err.response?.data,
         message: err.message
       });
-
+  
       setError(
-        err.response?.data?.errors 
+        err.response?.data?.message || 
+        (err.response?.data?.errors 
           ? Object.values(err.response.data.errors).flat().join(', ')
-          : err.response?.data?.message || err.message
+          : err.message)
       );
+    }
+  };
+
+  const parseAddress = (addressString) => {
+    // If it's already an object, return it
+    if (typeof addressString === 'object' && addressString !== null) {
+      return addressString;
+    }
+  
+    // If it's a string, try to parse or return as is
+    try {
+      // Attempt to parse if it looks like JSON
+      return JSON.parse(addressString);
+    } catch {
+      // If not JSON, return the full string
+      return { 
+        street: addressString 
+      };
+    }
+  };
+
+  const openMap = (lat, lng) => {
+    if (lat && lng) {
+      window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
     }
   };
 
@@ -96,6 +107,9 @@ const OrderDetail = () => {
     </div>
   );
 
+  // Parse shipping address
+  const shippingAddress = parseAddress(order.shippingAddress);
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="bg-white shadow-lg rounded-lg overflow-hidden">
@@ -117,13 +131,49 @@ const OrderDetail = () => {
 
         {/* Order Details Grid */}
         <div className="grid md:grid-cols-2 gap-6 p-6">
+          {/* Customer and Shipping Details */}
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">Customer Details</h3>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-900 font-semibold">{order.customerName}</p>
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              <p className="text-gray-900 font-semibold text-lg">
+                {order.customerName || 'N/A'}
+              </p>
+
+              <h4 className="text-sm font-medium text-gray-600 mt-2">Shipping Address</h4>
+              {shippingAddress.street && (
+                <p className="text-gray-900">{shippingAddress.street}</p>
+              )}
+              {(shippingAddress.city || shippingAddress.state || shippingAddress.postalCode) && (
+                <p className="text-gray-900">
+                  {shippingAddress.city}, {shippingAddress.state} {shippingAddress.postalCode}
+                </p>
+              )}
+              {shippingAddress.country && (
+                <p className="text-gray-900">{shippingAddress.country}</p>
+              )}
+              
+              {/* Latitude and Longitude */}
+              {(order.latitude !== 0 || order.longitude !== 0) && (
+                <div className="mt-2">
+                  <h4 className="text-sm font-medium text-gray-600 mb-1">Location</h4>
+                  <button 
+                    onClick={() => openMap(order.latitude, order.longitude)}
+                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+                  >
+                    <span>
+                      Lat: {order.latitude?.toFixed(6) || 'N/A'}, 
+                      Lng: {order.longitude?.toFixed(6) || 'N/A'}
+                    </span>
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Order Information Column */}
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">Order Information</h3>
             <div className="bg-gray-50 p-4 rounded-lg">

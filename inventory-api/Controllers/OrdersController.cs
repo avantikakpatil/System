@@ -65,19 +65,17 @@ namespace inventory_api.Controllers
             }
         }
 
-        
-
         [HttpPut("{id}/status")]
-        public async Task<ActionResult<OrderDto>> UpdateOrderStatus(int id, [FromBody] string status)
+        public async Task<ActionResult<OrderDto>> UpdateOrderStatus(int id, [FromBody] UpdateOrderStatusDto statusDto)
         {
             try
             {
-                var updatedOrder = await _orderService.UpdateOrderStatusAsync(id, status);
+                var updatedOrder = await _orderService.UpdateOrderStatusAsync(id, statusDto.Status);
                 return Ok(updatedOrder);
             }
             catch (ArgumentException ex)
             {
-                return NotFound(new { message = ex.Message });
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {

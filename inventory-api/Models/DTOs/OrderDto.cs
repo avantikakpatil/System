@@ -8,8 +8,16 @@ namespace inventory_api.Models.DTOs
         public decimal TotalAmount { get; set; }
         public DateTime OrderDate { get; set; }
         public string? Notes { get; set; }
+        public string ShippingAddress { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
         public string OrderStatus { get; set; }
         public List<OrderItemDto> OrderItems { get; set; }
+    }
+
+    public class UpdateOrderStatusDto
+    {
+        public string Status { get; set; }
     }
 
     public class OrderItemDto
