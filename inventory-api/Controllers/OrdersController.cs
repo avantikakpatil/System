@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using inventory_api.Services;
 using inventory_api.Models.DTOs;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using inventory_api.Data;
 
 namespace inventory_api.Controllers
 {
@@ -11,11 +13,13 @@ namespace inventory_api.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly ILogger<OrdersController> _logger;
+        private readonly ApplicationDbContext _context; // Add this line
 
-        public OrdersController(IOrderService orderService, ILogger<OrdersController> logger)
+        public OrdersController(IOrderService orderService, ILogger<OrdersController> logger, ApplicationDbContext context) // Update constructor
         {
             _orderService = orderService;
             _logger = logger;
+            _context = context; // Initialize context
         }
 
         [HttpPost]
@@ -109,6 +113,50 @@ namespace inventory_api.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred while deleting the order", error = ex.Message });
+            }
+        }
+
+        // Add this method for delivery routes
+        [HttpGet("{id}/route")]
+        public async Task<ActionResult<DeliveryRouteDto>> GetOrderRoute(int id)
+        {
+            try
+            {
+                var order = await _context.Orders
+                    .Include(o => o.User)
+                    .Include(o => o.Warehouse)
+                    .FirstOrDefaultAsync(o => o.Id == id);
+
+                if (order == null)
+                    return NotFound(new { message = "Order not found" });
+
+                var route = new DeliveryRouteDto
+                {
+                    OrderId = order.Id,
+                    Warehouse = new LocationDto
+                    {
+                        Id = order.Warehouse.Id,
+                        Name = order.Warehouse.Name,
+                        Address = order.Warehouse.Address,
+                        Latitude = order.Warehouse.Latitude,
+                        Longitude = order.Warehouse.Longitude
+                    },
+                    Customer = new LocationDto
+                    {
+                        Id = order.User.Id,
+                        Name = order.User.Name,
+                        Address = order.User.Address,
+                        Latitude = order.User.Latitude,
+                        Longitude = order.User.Longitude
+                    }
+                };
+
+                return Ok(route);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving order route");
+                return StatusCode(500, new { message = "An error occurred while fetching the order route", error = ex.Message });
             }
         }
     }

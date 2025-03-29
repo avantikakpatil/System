@@ -13,6 +13,18 @@
   }
 }
 
+
+/* Required for Leaflet */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Style for the warehouse markers if using the fallback */
+.warehouse-marker {
+  filter: hue-rotate(140deg);
+}
+
 .App-header {
   background-color: #282c34;
   min-height: 100vh;

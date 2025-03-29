@@ -5,7 +5,7 @@ import { FaTruck } from "react-icons/fa";
 
 import {
   FaHome, FaShoppingCart, FaBoxOpen, FaBox, FaUser,
-  FaFileInvoice, FaChartBar, FaFacebook, FaAmazon, FaPinterest 
+  FaFileInvoice, FaChartBar, FaFacebook, FaAmazon, FaPinterest,  FaRoute, FaMap 
 } from 'react-icons/fa';  
 
 const Sidebar = () => {   
@@ -33,6 +33,9 @@ const Sidebar = () => {
 
         <Link to="/warehouses">
   <SidebarItem icon={<FaTruck />} text="Warehouses" />
+</Link>
+<Link to="/delivery-routes">
+<SidebarItem icon={<FaMap className="h-5 w-5" />}  text="Delivery Routes" />
 </Link>
 
 

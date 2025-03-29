@@ -11,13 +11,17 @@ import OrderDetail from "./components/Orders/OrderDetail";
 import Warehouses from './components/Warehouses/Warehouses';
 import AddWarehouse from './components/Warehouses/AddWarehouse';
 import EditWarehouse from './components/Warehouses/EditWarehouse';
+import 'leaflet/dist/leaflet.css';
+
+// Import the new component
+import DeliveryRoutes from './components/DeliveryRoutes';
 
 function App() {
   return (
     <Router>
-      <div className="flex h-screen bg-gray-100">
+      <div className="flex">
         <Sidebar />
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 bg-gray-100 min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -29,6 +33,8 @@ function App() {
             <Route path="/warehouses" element={<Warehouses />} />
             <Route path="/warehouses/add" element={<AddWarehouse />} />
             <Route path="/warehouses/edit/:id" element={<EditWarehouse />} />
+            {/* Add the new route */}
+            <Route path="/delivery-routes" element={<DeliveryRoutes />} />
           </Routes>
         </div>
       </div>
