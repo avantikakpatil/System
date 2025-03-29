@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import SidebarItem from './SidebarItem';
+import { FaTruck } from "react-icons/fa";  
+
 import {
   FaHome, FaShoppingCart, FaBoxOpen, FaBox, FaUser,
   FaFileInvoice, FaChartBar, FaFacebook, FaAmazon, FaPinterest 
@@ -27,7 +29,14 @@ const Sidebar = () => {
         <Link to="/products">
           <SidebarItem icon={<FaBox />} text="Products" />
         </Link>         
-        <SidebarItem icon={<FaFileInvoice />} text="Invoice" active={false} />         
+        <SidebarItem icon={<FaFileInvoice />} text="Invoice" active={false} /> 
+
+        <Link to="/warehouses">
+  <SidebarItem icon={<FaTruck />} text="Warehouses" />
+</Link>
+
+
+              
         <SidebarItem icon={<FaChartBar />} text="Reports" active={false} />                  
         <div className="px-4 py-2 mt-6">           
           <p className="text-xs text-gray-400 uppercase tracking-wider">SALES CHANNEL</p>         

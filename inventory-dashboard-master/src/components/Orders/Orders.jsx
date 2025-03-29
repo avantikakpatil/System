@@ -11,7 +11,6 @@ const Orders = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        // Removed extra '/api' from the endpoint
         const response = await api.get('/orders');
         setOrders(response.data);
       } catch (err) {
@@ -27,7 +26,6 @@ const Orders = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this order?')) {
       try {
-        // Removed extra '/api' from the endpoint
         await api.delete(`/orders/${id}`);
         setOrders(orders.filter(order => order.id !== id));
       } catch (err) {
@@ -60,6 +58,7 @@ const Orders = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dispatch Warehouse</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -80,6 +79,7 @@ const Orders = () => {
                     {order.orderStatus}
                   </span>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.warehouseName || 'Not specified'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <Link
                     to={`/orders/${order.id}`}

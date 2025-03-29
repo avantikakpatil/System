@@ -13,6 +13,11 @@ namespace inventory_api.Models.DTOs
         public double Longitude { get; set; }
         public string OrderStatus { get; set; }
         public List<OrderItemDto> OrderItems { get; set; }
+        public int? WarehouseId { get; set; }
+public string WarehouseName { get; set; }
+public string WarehouseAddress { get; set; }
+public double WarehouseLatitude { get; set; }
+public double WarehouseLongitude { get; set; }
     }
 
     public class UpdateOrderStatusDto
@@ -35,6 +40,10 @@ namespace inventory_api.Models.DTOs
         public int CustomerId { get; set; }
         public string? Notes { get; set; }
         public List<CreateOrderItemDto> OrderItems { get; set; }
+
+        public int? WarehouseId { get; set; }
+
+
     }
 
     public class CreateOrderItemDto

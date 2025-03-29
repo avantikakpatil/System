@@ -153,7 +153,7 @@ const OrderDetail = () => {
               )}
               
               {/* Latitude and Longitude */}
-              {(order.latitude !== 0 || order.longitude !== 0) && (
+              {(order.latitude !== 0 && order.longitude !== 0) && (
                 <div className="mt-2">
                   <h4 className="text-sm font-medium text-gray-600 mb-1">Location</h4>
                   <button 
@@ -198,6 +198,40 @@ const OrderDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* Warehouse Details Section */}
+        {order.warehouseId && (
+          <div className="px-6 pb-6">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Dispatch Warehouse</h3>
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              <p className="text-gray-900 font-semibold text-lg">
+                {order.warehouseName || 'N/A'}
+              </p>
+              <p className="text-gray-900">{order.warehouseAddress}</p>
+
+              {/* Warehouse Location Map Button */}
+              {order.warehouseLatitude !== undefined && order.warehouseLongitude !== undefined && 
+               order.warehouseLatitude !== null && order.warehouseLongitude !== null &&
+               (order.warehouseLatitude !== 0 || order.warehouseLongitude !== 0) && (
+                <div className="mt-2">
+                  <h4 className="text-sm font-medium text-gray-600 mb-1">Warehouse Location</h4>
+                  <button 
+                    onClick={() => openMap(order.warehouseLatitude, order.warehouseLongitude)}
+                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+                  >
+                    <span>
+                      Lat: {order.warehouseLatitude?.toFixed(6) || 'N/A'}, 
+                      Lng: {order.warehouseLongitude?.toFixed(6) || 'N/A'}
+                    </span>
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Status Update Section */}
         <div className="px-6 pb-6">

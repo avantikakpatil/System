@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using inventory_api.Services;
 using inventory_api.Models.DTOs;
+using Microsoft.Extensions.Logging;
 
 namespace inventory_api.Controllers
 {
@@ -9,10 +10,12 @@ namespace inventory_api.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly ILogger<OrdersController> _logger;
 
-        public OrdersController(IOrderService orderService)
+        public OrdersController(IOrderService orderService, ILogger<OrdersController> logger)
         {
             _orderService = orderService;
+            _logger = logger;
         }
 
         [HttpPost]
@@ -20,21 +23,29 @@ namespace inventory_api.Controllers
         {
             try
             {
+                // Log the received data to debug
+                _logger.LogInformation("Received order data: {@OrderDto}", orderDto);
+                
+                // Check if WarehouseId is being properly received
+                _logger.LogInformation("Warehouse ID: {WarehouseId}", orderDto.WarehouseId);
+                
                 var createdOrder = await _orderService.CreateOrderAsync(orderDto);
                 return CreatedAtAction(nameof(GetOrderById), new { id = createdOrder.Id }, createdOrder);
             }
             catch (ArgumentException ex)
             {
+                _logger.LogWarning(ex, "Invalid argument when creating order");
                 return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error creating order");
                 return StatusCode(500, new { message = "An error occurred while creating the order", error = ex.Message });
             }
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<OrderDto>>> GetAllOrders()
+        public async Task<ActionResult<IEnumerable<OrderDto>>> GetAllOrders()
         {
             try
             {
@@ -84,7 +95,7 @@ namespace inventory_api.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteOrder(int id)
+        public async Task<ActionResult> DeleteOrder(int id)
         {
             try
             {

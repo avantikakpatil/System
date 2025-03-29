@@ -31,7 +31,6 @@ export const getProductById = async (id) => {
   }
 };
 
-// In api.js
 export const createProduct = async (productData) => {
   try {
     const response = await api.post('/products', {
@@ -155,9 +154,7 @@ export const deleteUser = async (userId) => {
   }
 };
 
-// Add these methods to your existing api.js file
-
-// In api.js
+// Orders API
 export const getOrders = async () => {
   try {
     const response = await api.get("/orders");
@@ -208,8 +205,56 @@ export const deleteOrder = async (orderId) => {
   }
 };
 
+export const getWarehouses = async () => {
+  try {
+    // Change from '/warehouses/all' to '/warehouses'
+    const response = await api.get('/warehouses');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching warehouses:", error);
+    throw error;
+  }
+};
 
+export const getWarehouse = async (id) => {
+  try {
+    const response = await api.get(`/warehouses/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching warehouse ${id}:`, error);
+    throw error;
+  }
+};
 
+export const createWarehouse = async (warehouseData) => {
+  try {
+    const response = await api.post('/warehouses', warehouseData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating warehouse:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+export const updateWarehouse = async (id, warehouseData) => {
+  try {
+    const response = await api.put(`/warehouses/${id}`, warehouseData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating warehouse ${id}:`, error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+export const deleteWarehouse = async (id) => {
+  try {
+    await api.delete(`/warehouses/${id}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting warehouse ${id}:`, error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
 
 // Email validation helper function
 function isValidEmail(email) {
@@ -217,7 +262,7 @@ function isValidEmail(email) {
   return emailRegex.test(email);
 }
 
-// Authentication placeholders
+// Authentication placeholders (can be removed if not needed)
 export const loginUser = async () => {
   console.warn("Authentication is not implemented");
   return { success: false };

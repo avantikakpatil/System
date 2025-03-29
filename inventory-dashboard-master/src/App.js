@@ -1,13 +1,16 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import './App.css';
-import Sidebar from './components/Sidebar/Sidebar';
-import Dashboard from './components/Dashboard/Dashboard';
-import Users from './components/Users/Users';
-import Products from './components/Products/Products';
-import Orders from './components/Orders/Orders';
-import CreateOrder from './components/Orders/CreateOrder';
-import OrderDetail from './components/Orders/OrderDetail';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import "./App.css";
+import Sidebar from "./components/Sidebar/Sidebar";
+import Dashboard from "./components/Dashboard/Dashboard";
+import Users from "./components/Users/Users";
+import Products from "./components/Products/Products";
+import Orders from "./components/Orders/Orders";
+import CreateOrder from "./components/Orders/CreateOrder";
+import OrderDetail from "./components/Orders/OrderDetail";
+import Warehouses from './components/Warehouses/Warehouses';
+import AddWarehouse from './components/Warehouses/AddWarehouse';
+import EditWarehouse from './components/Warehouses/EditWarehouse';
 
 function App() {
   return (
@@ -23,6 +26,9 @@ function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/create" element={<CreateOrder />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
+            <Route path="/warehouses" element={<Warehouses />} />
+            <Route path="/warehouses/add" element={<AddWarehouse />} />
+            <Route path="/warehouses/edit/:id" element={<EditWarehouse />} />
           </Routes>
         </div>
       </div>

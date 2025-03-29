@@ -1,4 +1,3 @@
-// Data/ApplicationDbContext.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using inventory_api.Models;
@@ -13,16 +12,16 @@ namespace inventory_api.Data
         }
 
         public DbSet<Order> Orders { get; set; }
-public DbSet<OrderItem> OrderItems { get; set; }
-
+        public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<User> Users { get; set; }
-        public DbSet<Product> Products { get; set; } // Ensure this line exists
+        public DbSet<Product> Products { get; set; }
+        public DbSet<Warehouse> Warehouses { get; set; } // Ensure this is present
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Apply configurations
             modelBuilder.ApplyConfiguration(new UserConfiguration());
             modelBuilder.ApplyConfiguration(new ProductConfiguration());
+            modelBuilder.ApplyConfiguration(new WarehouseConfiguration()); // Added for Warehouses
 
             base.OnModelCreating(modelBuilder);
         }
@@ -32,7 +31,7 @@ public DbSet<OrderItem> OrderItems { get; set; }
     {
         public void Configure(EntityTypeBuilder<User> builder)
         {
-            builder.ToTable("Users"); // Explicit table name
+            builder.ToTable("Users");
             builder.HasIndex(u => u.Email).IsUnique();
         }
     }
@@ -41,8 +40,17 @@ public DbSet<OrderItem> OrderItems { get; set; }
     {
         public void Configure(EntityTypeBuilder<Product> builder)
         {
-            builder.ToTable("Products"); // Explicit table name
-            builder.HasKey(p => p.Id); // Ensure primary key is set
+            builder.ToTable("Products");
+            builder.HasKey(p => p.Id);
+        }
+    }
+
+    public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
+    {
+        public void Configure(EntityTypeBuilder<Warehouse> builder)
+        {
+            builder.ToTable("Warehouses"); // Ensure table name is set
+            builder.HasKey(w => w.Id);
         }
     }
 }
