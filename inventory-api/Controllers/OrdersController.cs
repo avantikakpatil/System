@@ -116,48 +116,51 @@ namespace inventory_api.Controllers
             }
         }
 
-        // Add this method for delivery routes
-        [HttpGet("{id}/route")]
-        public async Task<ActionResult<DeliveryRouteDto>> GetOrderRoute(int id)
+[HttpGet("{id}/route")]
+public async Task<ActionResult<DeliveryRouteDto>> GetOrderRoute(int id)
+{
+    try
+    {
+        var order = await _context.Orders
+            .Include(o => o.Customer)
+            .Include(o => o.Warehouse)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order == null)
+            return NotFound(new { message = "Order not found" });
+
+        if (order.Customer == null || order.Warehouse == null)
+            return BadRequest(new { message = "Order is missing customer or warehouse data" });
+
+        var route = new DeliveryRouteDto
         {
-            try
+            OrderId = order.Id,
+            Customer = new LocationDto
             {
-                var order = await _context.Orders
-                    .Include(o => o.User)
-                    .Include(o => o.Warehouse)
-                    .FirstOrDefaultAsync(o => o.Id == id);
-
-                if (order == null)
-                    return NotFound(new { message = "Order not found" });
-
-                var route = new DeliveryRouteDto
-                {
-                    OrderId = order.Id,
-                    Warehouse = new LocationDto
-                    {
-                        Id = order.Warehouse.Id,
-                        Name = order.Warehouse.Name,
-                        Address = order.Warehouse.Address,
-                        Latitude = order.Warehouse.Latitude,
-                        Longitude = order.Warehouse.Longitude
-                    },
-                    Customer = new LocationDto
-                    {
-                        Id = order.User.Id,
-                        Name = order.User.Name,
-                        Address = order.User.Address,
-                        Latitude = order.User.Latitude,
-                        Longitude = order.User.Longitude
-                    }
-                };
-
-                return Ok(route);
-            }
-            catch (Exception ex)
+                Id = order.Customer.Id,
+                Name = order.Customer.CustomerName,
+                Address = order.Customer.ShippingAddress,
+                Latitude = (decimal)order.Customer.Latitude,
+                Longitude = (decimal)order.Customer.Longitude
+            },
+            Warehouse = new LocationDto
             {
-                _logger.LogError(ex, "Error retrieving order route");
-                return StatusCode(500, new { message = "An error occurred while fetching the order route", error = ex.Message });
+                Id = order.Warehouse.Id,
+                Name = order.Warehouse.Name,
+                Address = order.Warehouse.Address,
+                Latitude = (decimal)order.Warehouse.Latitude,
+                Longitude = (decimal)order.Warehouse.Longitude
             }
-        }
+        };
+
+        return Ok(route);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving order route: {Message}", ex.Message);
+        return StatusCode(500, new { message = "An error occurred while fetching the order route", error = ex.Message });
+    }
+}
+
     }
 }
