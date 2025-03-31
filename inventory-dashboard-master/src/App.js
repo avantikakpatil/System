@@ -20,8 +20,9 @@ function App() {
   return (
     <Router>
       <div className="flex">
+        {/* Sidebar is now fixed, so add a left margin for content */}
         <Sidebar />
-        <div className="flex-1 bg-gray-100 min-h-screen">
+        <div className="flex-1 bg-gray-100 min-h-screen ml-52 p-4">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -33,7 +34,6 @@ function App() {
             <Route path="/warehouses" element={<Warehouses />} />
             <Route path="/warehouses/add" element={<AddWarehouse />} />
             <Route path="/warehouses/edit/:id" element={<EditWarehouse />} />
-            {/* Add the new route */}
             <Route path="/delivery-routes" element={<DeliveryRoutes />} />
           </Routes>
         </div>
@@ -41,5 +41,6 @@ function App() {
     </Router>
   );
 }
+
 
 export default App;

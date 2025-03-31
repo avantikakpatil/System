@@ -10,12 +10,12 @@ import {
 
 const Sidebar = () => {   
   return (     
-    <div className="w-52 bg-gray-900 text-white h-screen flex flex-col">       
+    <div className="w-52 bg-gray-900 text-white h-screen fixed top-0 left-0 flex flex-col">       
       <div className="p-4 flex items-center">         
         <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-500"></div>         
         <span className="ml-2 font-bold text-lg">System</span>       
       </div>              
-      <nav className="mt-6 flex-1">         
+      <nav className="mt-6 flex-1 overflow-y-auto">         
         <Link to="/dashboard">
           <SidebarItem icon={<FaHome />} text="Home" />
         </Link>         
@@ -31,14 +31,12 @@ const Sidebar = () => {
         <SidebarItem icon={<FaFileInvoice />} text="Invoice" active={false} /> 
 
         <Link to="/warehouses">
-  <SidebarItem icon={<FaTruck />} text="Warehouses" />
-</Link>
-<Link to="/delivery-routes">
-<SidebarItem icon={<FaMap className="h-5 w-5" />}  text="Delivery Routes" />
-</Link>
+          <SidebarItem icon={<FaTruck />} text="Warehouses" />
+        </Link>
+        <Link to="/delivery-routes">
+          <SidebarItem icon={<FaMap className="h-5 w-5" />}  text="Delivery Routes" />
+        </Link>
 
-
-              
         <SidebarItem icon={<FaChartBar />} text="Reports" active={false} />                  
         <div className="px-4 py-2 mt-6">           
           <p className="text-xs text-gray-400 uppercase tracking-wider">SALES CHANNEL</p>         
@@ -55,5 +53,6 @@ const Sidebar = () => {
     </div>   
   ); 
 };  
+
 
 export default Sidebar;
