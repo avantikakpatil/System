@@ -25,7 +25,6 @@ const Sidebar = () => {
         <Link to="/orders">
           <SidebarItem icon={<FaShoppingCart />} text="Sales order" />
         </Link>
-        <SidebarItem icon={<FaBoxOpen />} text="Purchase order" active={false}/>         
         <Link to="/products">
           <SidebarItem icon={<FaBox />} text="Products" />
         </Link>         

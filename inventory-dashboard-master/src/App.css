@@ -13,7 +13,6 @@
   }
 }
 
-
 /* Required for Leaflet */
 .leaflet-container {
   width: 100%;
@@ -38,6 +37,23 @@
 
 .App-link {
   color: #61dafb;
+}
+
+/* Sticky sidebar styles */
+.sidebar {
+  position: sticky;
+  top: 0; /* Stick to the top */
+  height: 100vh; /* Full height */
+  overflow-y: auto; /* Enable scrolling within the sidebar if content overflows */
+}
+
+
+/* If you have a specific sidebar container in your component */
+.route-info-sidebar {
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
 }
 
 @keyframes App-logo-spin {

@@ -55,15 +55,14 @@ const Map = () => {
   const [orders, setOrders] = useState([]);
   const [selectedWarehouse, setSelectedWarehouse] = useState(null);
   const [routePath, setRoutePath] = useState([]);
-  const [optimizedPath, setOptimizedPath] = useState([]);
   const [routeSegments, setRouteSegments] = useState([]);
-  const [showOptimized, setShowOptimized] = useState(true);
   const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]); // Default center on India
   const [mapZoom, setMapZoom] = useState(5); // Default zoom level
   const [isLoading, setIsLoading] = useState(false);
   const [mapBounds, setMapBounds] = useState([]);
   const [customerDistances, setCustomerDistances] = useState({});
   const [routeStops, setRouteStops] = useState([]);
+  const [driverPath, setDriverPath] = useState([]);
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -161,16 +160,19 @@ const Map = () => {
         
         // Extract the distance from the API response
         const distance = data.features[0].properties.summary?.distance || null;
+        const duration = data.features[0].properties.summary?.duration || null;
         
         return {
           path: routeCoordinates,
-          distance: distance ? (distance / 1000).toFixed(2) : null // Convert to km and format
+          distance: distance ? (distance / 1000).toFixed(2) : null, // Convert to km and format
+          duration: duration ? Math.round(duration / 60) : null // Convert to minutes
         };
       } else {
         console.error('Unexpected API response structure:', data);
         return {
           path: [startCoords, endCoords],
-          distance: calculateDistance(startCoords[0], startCoords[1], endCoords[0], endCoords[1]).toFixed(2)
+          distance: calculateDistance(startCoords[0], startCoords[1], endCoords[0], endCoords[1]).toFixed(2),
+          duration: null
         };
       }
     } catch (error) {
@@ -178,7 +180,8 @@ const Map = () => {
       // Return a straight line as fallback and calculate distance
       return {
         path: [startCoords, endCoords],
-        distance: calculateDistance(startCoords[0], startCoords[1], endCoords[0], endCoords[1]).toFixed(2)
+        distance: calculateDistance(startCoords[0], startCoords[1], endCoords[0], endCoords[1]).toFixed(2),
+        duration: null
       };
     }
   };
@@ -201,11 +204,11 @@ const Map = () => {
 
     if (customersWithOrders.length === 0) {
       setRoutePath([]);
-      setOptimizedPath([]);
       setRouteSegments([]);
       setMapBounds([]);
       setCustomerDistances({});
       setRouteStops([]);
+      setDriverPath([]);
       setIsLoading(false);
       return;
     }
@@ -215,6 +218,12 @@ const Map = () => {
     
     // Store distances from warehouse to each customer
     const distances = {};
+    
+    // Create optimized route using nearest neighbor algorithm
+    const optimizedRoute = await createOptimizedRoute(selectedWarehouse, customersWithOrders);
+    
+    // Store the driver's path (sequential point-to-point route)
+    setDriverPath(optimizedRoute.path);
     
     // Track all route stops for the driver (with sequence numbers)
     const stops = [
@@ -226,217 +235,169 @@ const Map = () => {
         description: 'Starting point (Warehouse)'
       }
     ];
-
-    // Create simple route: warehouse -> customers -> warehouse (non-optimized)
-    try {
-      let simplePathSegments = [];
-      // For segmented routes
-      let segments = [];
-      
-      // Add warehouse to first customer
-      const warehouseCoords = [selectedWarehouse.latitude, selectedWarehouse.longitude];
-      const firstCustomerCoords = [customersWithOrders[0].latitude, customersWithOrders[0].longitude];
-      
-      const firstSegmentData = await fetchDrivingRoute(warehouseCoords, firstCustomerCoords);
-      simplePathSegments = simplePathSegments.concat(firstSegmentData.path);
-      
-      // Store distance from warehouse to first customer
-      distances[customersWithOrders[0].id] = firstSegmentData.distance;
-      
-      // Add the first segment
-      segments.push({
-        path: firstSegmentData.path,
-        type: 'warehouse-to-customer',
-        startName: selectedWarehouse.name,
-        endName: customersWithOrders[0].name,
-        distance: firstSegmentData.distance,
-        color: '#0F3460', // Dark blue for first segment
-        weight: 5
-      });
-      
-      // Add first customer to stops
-      stops.push({
-        type: 'waypoint',
-        number: 1,
-        name: customersWithOrders[0].name,
-        location: [customersWithOrders[0].latitude, customersWithOrders[0].longitude],
-        description: 'Delivery Point 1',
-        distance: firstSegmentData.distance + ' km from warehouse'
-      });
-      
-      // Add customer to customer segments
-      for (let i = 0; i < customersWithOrders.length - 1; i++) {
-        const startCoords = [customersWithOrders[i].latitude, customersWithOrders[i].longitude];
-        const endCoords = [customersWithOrders[i + 1].latitude, customersWithOrders[i + 1].longitude];
-        
-        const segmentData = await fetchDrivingRoute(startCoords, endCoords);
-        // Remove the first point to avoid duplicates
-        if (segmentData.path.length > 0) {
-          simplePathSegments = simplePathSegments.concat(segmentData.path.slice(1));
-        }
-        
-        // Add segment
-        segments.push({
-          path: segmentData.path,
-          type: 'customer-to-customer',
-          startName: customersWithOrders[i].name,
-          endName: customersWithOrders[i + 1].name,
-          distance: segmentData.distance,
-          color: '#1A508B', // Mid blue for intermediate segments
-          weight: 4
-        });
-        
-        // Add to stops
+    
+    // Add all customers to stops in the optimized sequence
+    if (optimizedRoute.stopSequence) {
+      optimizedRoute.stopSequence.forEach((customer, index) => {
         stops.push({
           type: 'waypoint',
-          number: i + 2, // Start from 2 for the second customer
-          name: customersWithOrders[i + 1].name,
-          location: [customersWithOrders[i + 1].latitude, customersWithOrders[i + 1].longitude],
-          description: `Delivery Point ${i + 2}`,
-          distance: segmentData.distance + ' km from previous stop'
+          number: index + 1,
+          name: customer.name,
+          location: [customer.latitude, customer.longitude],
+          description: `Delivery Point ${index + 1}`,
+          distance: optimizedRoute.segmentDistances[index] + ' km',
+          duration: optimizedRoute.segmentDurations[index] ? 
+            `${optimizedRoute.segmentDurations[index]} min` : 'N/A',
+          estimatedArrival: calculateEstimatedArrival(index, optimizedRoute.segmentDurations)
         });
         
-        // Add all customer points to the collection for bounds
-        allPoints.push([customersWithOrders[i].latitude, customersWithOrders[i].longitude]);
-      }
-      
-      // Add last customer point to bounds
-      allPoints.push([
-        customersWithOrders[customersWithOrders.length - 1].latitude, 
-        customersWithOrders[customersWithOrders.length - 1].longitude
-      ]);
-      
-      // Add last customer back to warehouse
-      const lastCustomerCoords = [
-        customersWithOrders[customersWithOrders.length - 1].latitude, 
-        customersWithOrders[customersWithOrders.length - 1].longitude
-      ];
-      
-      const lastSegmentData = await fetchDrivingRoute(lastCustomerCoords, warehouseCoords);
-      // Remove the first point to avoid duplicates
-      if (lastSegmentData.path.length > 0) {
-        simplePathSegments = simplePathSegments.concat(lastSegmentData.path.slice(1));
-      }
-      
-      // Add the return segment
-      segments.push({
-        path: lastSegmentData.path,
-        type: 'customer-to-warehouse',
-        startName: customersWithOrders[customersWithOrders.length - 1].name,
-        endName: selectedWarehouse.name,
-        distance: lastSegmentData.distance,
-        color: '#0F3460', // Dark blue for return to warehouse
-        weight: 5
+        // Add to bounds and distances
+        allPoints.push([customer.latitude, customer.longitude]);
+        distances[customer.id] = optimizedRoute.directDistances[customer.id];
       });
-      
-      // Add final destination (return to warehouse) to stops
-      stops.push({
-        type: 'destination',
-        number: customersWithOrders.length + 1,
-        name: selectedWarehouse.name,
-        location: [selectedWarehouse.latitude, selectedWarehouse.longitude],
-        description: 'Return to Warehouse',
-        distance: lastSegmentData.distance + ' km from last delivery'
-      });
-      
-      setRoutePath(simplePathSegments);
-      setRouteSegments(segments);
-      
-      // For remaining customers, fetch direct distances from warehouse
-      for (let i = 1; i < customersWithOrders.length; i++) {
-        const customerCoords = [customersWithOrders[i].latitude, customersWithOrders[i].longitude];
-        const segmentData = await fetchDrivingRoute(warehouseCoords, customerCoords);
-        distances[customersWithOrders[i].id] = segmentData.distance;
-      }
-      
-      // Create optimized route using nearest neighbor algorithm
-      const optimizedRouteData = await createOptimizedRoute(selectedWarehouse, customersWithOrders);
-      setOptimizedPath(optimizedRouteData.path);
-      
-      // Set the bounds for auto-zooming
-      setMapBounds(allPoints);
-      
-      // Store all customer distances
-      setCustomerDistances(distances);
-      
-      // Set the route stops
-      setRouteStops(stops);
-    } catch (error) {
-      console.error('Error creating delivery routes:', error);
-    } finally {
-      setIsLoading(false);
     }
+    
+    // Set the bounds for auto-zooming
+    setMapBounds(allPoints);
+    
+    // Store all customer distances
+    setCustomerDistances(distances);
+    
+    // Store route segments data
+    setRouteSegments(optimizedRoute.segments);
+    
+    // Set the route stops
+    setRouteStops(stops);
+    
+    setIsLoading(false);
+  };
+  
+  // Helper function to calculate estimated arrival time
+  const calculateEstimatedArrival = (stopIndex, durations) => {
+    if (!durations || durations.length === 0) return 'N/A';
+    
+    const now = new Date();
+    let totalMinutes = 0;
+    
+    // Sum up all durations up to current stop
+    for (let i = 0; i <= stopIndex; i++) {
+      if (durations[i]) {
+        totalMinutes += durations[i];
+      }
+    }
+    
+    // Add average time spent at each stop (e.g., 10 minutes per delivery)
+    totalMinutes += stopIndex * 10;
+    
+    const arrivalTime = new Date(now.getTime() + totalMinutes * 60000);
+    return arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Enhanced createOptimizedRoute function using Nearest Neighbor
   const createOptimizedRoute = async (warehouse, customers) => {
-    // Start from the warehouse
-    const warehouseCoord = [warehouse.latitude, warehouse.longitude];
-    let route = [];
-    
-    // Create a copy of customers that we can modify
-    const remainingCustomers = [...customers];
-    
     // If there are no customers, just return the warehouse point
-    if (remainingCustomers.length === 0) {
-      return { path: [warehouseCoord], totalDistance: 0 };
+    if (customers.length === 0) {
+      return { 
+        path: [[warehouse.latitude, warehouse.longitude]], 
+        totalDistance: 0,
+        stopSequence: [],
+        segmentDistances: [],
+        segmentDurations: [],
+        segments: [],
+        directDistances: {}
+      };
+    }
+
+    // Create arrays to store the results
+    let path = [];
+    let currentPoint = [warehouse.latitude, warehouse.longitude];
+    let remainingCustomers = [...customers];
+    let visitSequence = [];
+    let segmentDistances = [];
+    let segmentDurations = [];
+    let segments = [];
+    let directDistances = {};
+    
+    // Pre-calculate direct distances from warehouse to each customer
+    for (const customer of customers) {
+      const warehouseCoords = [warehouse.latitude, warehouse.longitude];
+      const customerCoords = [customer.latitude, customer.longitude];
+      
+      const routeData = await fetchDrivingRoute(warehouseCoords, customerCoords);
+      directDistances[customer.id] = routeData.distance;
     }
     
-    let currentCoord = warehouseCoord;
+    // Start with warehouse
     let totalDistance = 0;
     
-    // Continue until all customers have been visited
+    // Find the nearest neighbor at each step
     while (remainingCustomers.length > 0) {
-      // Find the nearest unvisited customer
       let nearestIndex = 0;
-      let minDistance = Number.MAX_VALUE;
+      let shortestDistance = Infinity;
+      let nearestRouteData = null;
       
+      // Find the nearest unvisited customer
       for (let i = 0; i < remainingCustomers.length; i++) {
-        const customer = remainingCustomers[i];
-        const distance = calculateDistance(
-          currentCoord[0], 
-          currentCoord[1], 
-          customer.latitude, 
-          customer.longitude
-        );
+        const nextPoint = [remainingCustomers[i].latitude, remainingCustomers[i].longitude];
         
-        if (distance < minDistance) {
-          minDistance = distance;
+        const routeData = await fetchDrivingRoute(currentPoint, nextPoint);
+        const distance = parseFloat(routeData.distance);
+        
+        if (distance < shortestDistance) {
+          shortestDistance = distance;
           nearestIndex = i;
+          nearestRouteData = routeData;
         }
       }
       
-      // Get next customer coordinates
-      const nextCustomer = remainingCustomers[nearestIndex];
-      const nextCoord = [nextCustomer.latitude, nextCustomer.longitude];
+      // Add the nearest customer to our path
+      const selectedCustomer = remainingCustomers[nearestIndex];
+      visitSequence.push(selectedCustomer);
       
-      // Fetch the actual driving route between current point and next customer
-      const pathSegmentData = await fetchDrivingRoute(currentCoord, nextCoord);
-      
-      // For the first segment, add all points
-      if (route.length === 0) {
-        route = route.concat(pathSegmentData.path);
+      // Add this segment to our path
+      if (path.length === 0) {
+        // For the first segment (from warehouse to first customer)
+        path = nearestRouteData.path;
       } else {
         // For subsequent segments, skip the first point to avoid duplicates
-        route = route.concat(pathSegmentData.path.slice(1));
+        path = path.concat(nearestRouteData.path.slice(1));
       }
       
-      // Update current point and remove this customer from the remaining list
-      currentCoord = nextCoord;
-      remainingCustomers.splice(nearestIndex, 1);
+      // Update current position
+      currentPoint = [selectedCustomer.latitude, selectedCustomer.longitude];
       
-      // Add distance
-      totalDistance += parseFloat(pathSegmentData.distance);
+      // Save segment information
+      segmentDistances.push(nearestRouteData.distance);
+      segmentDurations.push(nearestRouteData.duration);
+      
+      // Add to segment collection for styling
+      segments.push({
+        path: nearestRouteData.path,
+        type: path.length === nearestRouteData.path.length ? 'warehouse-to-customer' : 'customer-to-customer',
+        startName: path.length === nearestRouteData.path.length ? warehouse.name : visitSequence[visitSequence.length - 2].name,
+        endName: selectedCustomer.name,
+        distance: nearestRouteData.distance,
+        duration: nearestRouteData.duration,
+        color: path.length === nearestRouteData.path.length ? '#0F3460' : '#1A508B', // Different color for first segment
+        weight: path.length === nearestRouteData.path.length ? 5 : 4
+      });
+      
+      // Add to total distance
+      totalDistance += shortestDistance;
+      
+      // Remove the customer from remaining list
+      remainingCustomers.splice(nearestIndex, 1);
     }
     
-    // Return to the warehouse to complete the route
-    const returnSegmentData = await fetchDrivingRoute(currentCoord, warehouseCoord);
-    // Remove the first point to avoid duplicates
-    route = route.concat(returnSegmentData.path.slice(1));
-    
-    // Add return distance
-    totalDistance += parseFloat(returnSegmentData.distance);
-    
-    return { path: route, totalDistance: totalDistance.toFixed(2) };
+    return {
+      path,
+      totalDistance: totalDistance.toFixed(2),
+      stopSequence: visitSequence,
+      segmentDistances,
+      segmentDurations,
+      segments,
+      directDistances
+    };
   };
 
   const handleWarehouseChange = (warehouse) => {
@@ -460,7 +421,7 @@ const Map = () => {
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold mb-4">Delivery Routes</h2>
+      <h2 className="text-xl font-semibold mb-4">Driver Delivery Route</h2>
       
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -480,18 +441,6 @@ const Map = () => {
             </option>
           ))}
         </select>
-      </div>
-      
-      <div className="mb-4">
-        <label className="flex items-center text-sm">
-          <input
-            type="checkbox"
-            checked={showOptimized}
-            onChange={() => setShowOptimized(!showOptimized)}
-            className="mr-2"
-          />
-          Show Optimized Route
-        </label>
       </div>
       
       <div className="h-96 w-full relative">
@@ -521,8 +470,8 @@ const Map = () => {
             {/* Auto-zoom to bounds component */}
             {mapBounds.length > 0 && <FitBounds bounds={mapBounds} />}
             
-            {/* Display route segments with different styling based on segment type */}
-            {!showOptimized && routeSegments.map((segment, idx) => (
+            {/* Display route segments with smooth color gradient */}
+            {routeSegments.map((segment, idx) => (
               <Polyline 
                 key={`segment-${idx}`}
                 positions={segment.path}
@@ -532,45 +481,23 @@ const Map = () => {
               >
                 <Popup>
                   <div>
-                    <h3 className="font-bold">Route Segment</h3>
+                    <h3 className="font-bold">Route Segment {idx + 1}</h3>
                     <p>From: {segment.startName}</p>
                     <p>To: {segment.endName}</p>
                     <p>Distance: {segment.distance} km</p>
-                    <p>{segment.type === 'warehouse-to-customer' ? 'First delivery' : 
-                        segment.type === 'customer-to-warehouse' ? 'Return to warehouse' : 
-                        'Between delivery points'}</p>
+                    {segment.duration && <p>Estimated Time: {segment.duration} min</p>}
                   </div>
                 </Popup>
               </Polyline>
             ))}
-            
-            {/* Display optimized route if selected with enhanced styling */}
-            {showOptimized && optimizedPath.length > 0 && (
-              <Polyline 
-                positions={optimizedPath}
-                color="#0F3460"
-                weight={5}
-                opacity={0.9}
-              >
-                <Popup>
-                  <div>
-                    <h3 className="font-bold">Optimized Route</h3>
-                    <p>Starting point: {selectedWarehouse.name}</p>
-                    <p>Number of delivery points: {visibleCustomers.length}</p>
-                    <p>Returns to warehouse at the end</p>
-                  </div>
-                </Popup>
-              </Polyline>
-            )}
             
             {/* Display sequence numbers for each stop */}
             {routeStops.map((stop, idx) => (
               <CircleMarker
                 key={`stop-marker-${idx}`}
                 center={stop.location}
-                radius={stop.type === 'source' || stop.type === 'destination' ? 8 : 6}
-                fillColor={stop.type === 'source' ? '#003049' : 
-                          stop.type === 'destination' ? '#003049' : '#D62828'}
+                radius={stop.type === 'source' ? 8 : 6}
+                fillColor={stop.type === 'source' ? '#003049' : '#D62828'}
                 fillOpacity={0.9}
                 stroke={true}
                 color="white"
@@ -578,12 +505,12 @@ const Map = () => {
               >
                 <Popup>
                   <div>
-                    <h3 className="font-bold">{stop.type === 'source' ? 'Starting Point' : 
-                                              stop.type === 'destination' ? 'Final Destination' : 
-                                              `Stop #${stop.number}`}</h3>
+                    <h3 className="font-bold">{stop.type === 'source' ? 'Starting Point' : `Stop #${stop.number}`}</h3>
                     <p>{stop.name}</p>
                     <p>{stop.description}</p>
                     {stop.distance && <p>Distance: {stop.distance}</p>}
+                    {stop.duration && <p>Travel Time: {stop.duration}</p>}
+                    {stop.estimatedArrival && <p>Est. Arrival: {stop.estimatedArrival}</p>}
                   </div>
                 </Popup>
               </CircleMarker>
@@ -600,7 +527,7 @@ const Map = () => {
                   <div>
                     <h3 className="font-bold">{selectedWarehouse.name}</h3>
                     <p>{selectedWarehouse.location}</p>
-                    <p className="font-semibold mt-2">Source & Destination</p>
+                    <p className="font-semibold mt-2">Starting Point</p>
                   </div>
                 </Popup>
               </Marker>
@@ -623,7 +550,6 @@ const Map = () => {
                         Distance from warehouse: {customerDistances[customer.id]} km
                       </p>
                     )}
-                    <p className="font-semibold">Delivery Stop #{index + 1}</p>
                   </div>
                 </Popup>
               </Marker>
@@ -641,17 +567,24 @@ const Map = () => {
             {routeStops.map((stop, idx) => (
               <div key={`route-stop-${idx}`} className="flex items-start space-x-3 p-2 border-b border-gray-200">
                 <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                  stop.type === 'source' ? 'bg-blue-800' : 
-                  stop.type === 'destination' ? 'bg-blue-800' : 'bg-red-600'
+                  stop.type === 'source' ? 'bg-blue-800' : 'bg-red-600'
                 }`}>
                   {stop.number}
                 </div>
                 <div className="flex-grow">
                   <div className="font-semibold">{stop.name}</div>
                   <div className="text-sm text-gray-600">{stop.description}</div>
-                  {stop.distance && (
-                    <div className="text-sm text-gray-700 mt-1">{stop.distance}</div>
-                  )}
+                  <div className="grid grid-cols-2 gap-x-2 mt-1">
+                    {stop.distance && (
+                      <div className="text-sm text-gray-700">Distance: {stop.distance}</div>
+                    )}
+                    {stop.duration && (
+                      <div className="text-sm text-gray-700">Travel time: {stop.duration}</div>
+                    )}
+                    {stop.estimatedArrival && (
+                      <div className="text-sm text-gray-700">ETA: {stop.estimatedArrival}</div>
+                    )}
+                  </div>
                 </div>
                 {idx < routeStops.length - 1 && (
                   <div className="flex-shrink-0 text-gray-500">
@@ -662,7 +595,7 @@ const Map = () => {
             ))}
             
             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded text-blue-800">
-              <span className="font-bold">Total Stops:</span> {routeStops.length} (including warehouse as source and destination)
+              <span className="font-bold">Total Stops:</span> {routeStops.length} (including warehouse as starting point)
             </div>
           </div>
         ) : (
@@ -678,15 +611,19 @@ const Map = () => {
           <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
             <p className="text-sm flex items-center mb-2">
               <span className="inline-block w-6 h-6 bg-blue-800 rounded-full mr-2 flex-shrink-0"></span>
-              <span>Warehouse (Source & Destination)</span>
+              <span>Warehouse (Starting Point)</span>
             </p>
             <p className="text-sm flex items-center mb-2">
               <span className="inline-block w-6 h-6 bg-red-600 rounded-full mr-2 flex-shrink-0"></span>
               <span>Customer Locations (Delivery Points)</span>
             </p>
             <p className="text-sm flex items-center mb-2">
+              <span className="inline-block w-6 h-6 rounded-full border-2 border-white bg-blue-800 mr-2 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">0</span>
+              <span>Stop Sequence Numbers</span>
+            </p>
+            <p className="text-sm flex items-center mb-2">
               <span className="inline-block w-16 h-2 bg-blue-900 mr-2 flex-shrink-0"></span>
-              <span>Route From Warehouse & Return to Warehouse</span>
+              <span>Route From Warehouse</span>
             </p>
             <p className="text-sm flex items-center">
               <span className="inline-block w-16 h-2 bg-blue-700 mr-2 flex-shrink-0"></span>
@@ -696,26 +633,40 @@ const Map = () => {
         </div>
         
         <div>
-          <h3 className="font-semibold mb-2">Customer Distances from Warehouse</h3>
+          <h3 className="font-semibold mb-2">Driver Trip Summary</h3>
           {visibleCustomers.length > 0 ? (
-            <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-3 shadow-sm">
-              {visibleCustomers.map((customer, index) => (
-                <div key={`distance-${customer.id}`} className="text-sm mb-2 flex">
-                  <span className="inline-block w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center mr-2 flex-shrink-0 text-xs font-bold">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <span className="font-medium">{customer.name}: </span>
-                    {customerDistances[customer.id] ? 
-                      `${customerDistances[customer.id]} km` : 
-                      'Calculating...'}
-                  </div>
+            <div className="border border-gray-200 rounded-lg p-3 shadow-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-sm">
+                  <span className="font-medium">Starting point:</span> {selectedWarehouse?.name || 'N/A'}
                 </div>
-              ))}
+                <div className="text-sm">
+                  <span className="font-medium">Total deliveries:</span> {visibleCustomers.length}
+                </div>
+                {routeSegments.length > 0 && (
+                  <>
+                    <div className="text-sm">
+                      <span className="font-medium">Total distance:</span> {
+                        routeSegments.reduce((total, segment) => total + parseFloat(segment.distance), 0).toFixed(2)
+                      } km
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Est. total time:</span> {
+                        routeSegments.reduce((total, segment) => total + (segment.duration || 0), 0) + 
+                        (visibleCustomers.length * 10) // Adding 10 min per stop for delivery time
+                      } min
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              <div className="mt-3 text-sm text-gray-700">
+                <span className="font-medium">Route optimization:</span> Using nearest neighbor algorithm for efficient point-to-point delivery
+              </div>
             </div>
           ) : (
             <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm text-gray-600 text-sm">
-              No customer distances to display.
+              No trip summary to display.
             </div>
           )}
         </div>
