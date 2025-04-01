@@ -1,6 +1,7 @@
+// src/App.js
+
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import "./App.css";
 import Sidebar from "./components/Sidebar/Sidebar";
 import Dashboard from "./components/Dashboard/Dashboard";
 import Users from "./components/Users/Users";
@@ -11,10 +12,8 @@ import OrderDetail from "./components/Orders/OrderDetail";
 import Warehouses from './components/Warehouses/Warehouses';
 import AddWarehouse from './components/Warehouses/AddWarehouse';
 import EditWarehouse from './components/Warehouses/EditWarehouse';
-import 'leaflet/dist/leaflet.css';
-
-// Import the new component
 import DeliveryRoutes from './components/DeliveryRoutes';
+import AssignTruck from './components/Map/AssignTruck';  // Import new component
 
 function App() {
   return (
@@ -35,12 +34,12 @@ function App() {
             <Route path="/warehouses/add" element={<AddWarehouse />} />
             <Route path="/warehouses/edit/:id" element={<EditWarehouse />} />
             <Route path="/delivery-routes" element={<DeliveryRoutes />} />
+            <Route path="/assign-truck" element={<AssignTruck />} />  {/* New route for AssignTruck */}
           </Routes>
         </div>
       </div>
     </Router>
   );
 }
-
 
 export default App;

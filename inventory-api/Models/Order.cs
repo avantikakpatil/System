@@ -35,6 +35,10 @@ namespace inventory_api.Models
         public int? WarehouseId { get; set; }
 [ForeignKey("WarehouseId")]
 public Warehouse Warehouse { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string WarehouseName { get; set; } = string.Empty;
+public int? TruckId { get; set; }
+        public Truck? Truck { get; set; }
 
     }
 

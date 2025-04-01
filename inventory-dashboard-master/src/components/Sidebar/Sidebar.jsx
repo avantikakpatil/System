@@ -28,8 +28,9 @@ const Sidebar = () => {
         <Link to="/products">
           <SidebarItem icon={<FaBox />} text="Products" />
         </Link>         
-        <SidebarItem icon={<FaFileInvoice />} text="Invoice" active={false} /> 
-
+        <Link to="/assign-truck">
+  <SidebarItem icon={<FaTruck />} text="Assign Truck" />
+</Link>
         <Link to="/warehouses">
           <SidebarItem icon={<FaTruck />} text="Warehouses" />
         </Link>

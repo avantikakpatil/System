@@ -256,6 +256,79 @@ export const deleteWarehouse = async (id) => {
   }
 };
 
+export const getTrucks = async () => {
+  try {
+    const response = await api.get('/trucks');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching trucks:", error);
+    throw error;
+  }
+};
+
+export const getTruckById = async (id) => {
+  try {
+    const response = await api.get(`/trucks/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching truck ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createTruck = async (truckData) => {
+  try {
+    const response = await api.post('/trucks', truckData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating truck:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+export const assignTruck = async (assignData) => {
+  try {
+    const response = await api.post('/trucks/assign', assignData);
+    return response.data;
+  } catch (error) {
+    console.error('Error assigning truck:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+export const deleteTruck = async (id) => {
+  try {
+    const response = await api.delete(`/trucks/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting truck ${id}:`, error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+// Add this new function for fetching assigned orders
+export const getAssignedOrders = async () => {
+  try {
+    // Try to get assigned orders - if this endpoint exists
+    const response = await api.get('/trucks/assigned-orders');
+    return response.data;
+  } catch (error) {
+    // If we get a 400 error, fall back to a different approach
+    if (error.response && error.response.status === 400) {
+      console.warn("Assigned orders endpoint returned 400, using fallback method");
+      
+      // Fallback: Get all orders and filter those that have a truckNumber
+      const allOrders = await api.get('/orders');
+      return allOrders.data.filter(order => order.truckNumber);
+    }
+    
+    console.error("Error fetching assigned orders:", error);
+    // Return empty array instead of throwing to prevent component from crashing
+    return [];
+  }
+};
+
+
 // Email validation helper function
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

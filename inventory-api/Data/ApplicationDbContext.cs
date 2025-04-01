@@ -16,6 +16,8 @@ namespace inventory_api.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<Warehouse> Warehouses { get; set; } // Ensure this is present
+        public DbSet<Truck> Trucks { get; set; } // Add this line
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
