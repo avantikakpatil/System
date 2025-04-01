@@ -293,112 +293,202 @@ const Map = () => {
     return arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Enhanced createOptimizedRoute function using Nearest Neighbor
-  const createOptimizedRoute = async (warehouse, customers) => {
-    // If there are no customers, just return the warehouse point
-    if (customers.length === 0) {
-      return { 
-        path: [[warehouse.latitude, warehouse.longitude]], 
-        totalDistance: 0,
-        stopSequence: [],
-        segmentDistances: [],
-        segmentDurations: [],
-        segments: [],
-        directDistances: {}
-      };
-    }
+  // Enhanced routing algorithm using 2-opt optimization after nearest neighbor
+const createOptimizedRoute = async (warehouse, customers) => {
+  // If there are no customers, just return the warehouse point
+  if (customers.length === 0) {
+    return { 
+      path: [[warehouse.latitude, warehouse.longitude]], 
+      totalDistance: 0,
+      stopSequence: [],
+      segmentDistances: [],
+      segmentDurations: [],
+      segments: [],
+      directDistances: {}
+    };
+  }
 
-    // Create arrays to store the results
-    let path = [];
-    let currentPoint = [warehouse.latitude, warehouse.longitude];
-    let remainingCustomers = [...customers];
-    let visitSequence = [];
-    let segmentDistances = [];
-    let segmentDurations = [];
-    let segments = [];
-    let directDistances = {};
+  // Create a distance matrix for all locations (warehouse + customers)
+  const locations = [
+    { id: 'warehouse', lat: warehouse.latitude, lng: warehouse.longitude, name: warehouse.name },
+    ...customers.map(c => ({ id: c.id, lat: c.latitude, lng: c.longitude, name: c.name }))
+  ];
+  
+  // Calculate all pairwise distances
+  const distanceMatrix = {};
+  const routeDataCache = {};
+  
+  // Pre-calculate all pairwise distances
+  for (let i = 0; i < locations.length; i++) {
+    const from = locations[i];
+    distanceMatrix[from.id] = {};
     
-    // Pre-calculate direct distances from warehouse to each customer
-    for (const customer of customers) {
-      const warehouseCoords = [warehouse.latitude, warehouse.longitude];
-      const customerCoords = [customer.latitude, customer.longitude];
+    for (let j = 0; j < locations.length; j++) {
+      if (i === j) {
+        distanceMatrix[from.id][from.id] = 0;
+        continue;
+      }
       
-      const routeData = await fetchDrivingRoute(warehouseCoords, customerCoords);
-      directDistances[customer.id] = routeData.distance;
+      const to = locations[j];
+      const cacheKey = `${from.id}-${to.id}`;
+      
+      // If we've already calculated this route, use cached value
+      if (routeDataCache[cacheKey]) {
+        distanceMatrix[from.id][to.id] = parseFloat(routeDataCache[cacheKey].distance);
+        continue;
+      }
+      
+      const fromCoords = [from.lat, from.lng];
+      const toCoords = [to.lat, to.lng];
+      
+      const routeData = await fetchDrivingRoute(fromCoords, toCoords);
+      routeDataCache[cacheKey] = routeData;
+      distanceMatrix[from.id][to.id] = parseFloat(routeData.distance);
+    }
+  }
+  
+  // Step 1: Create initial route using nearest neighbor
+  let currentPoint = 'warehouse';
+  let unvisited = customers.map(c => c.id);
+  let tour = ['warehouse'];
+  
+  // Standard nearest neighbor algorithm
+  while (unvisited.length > 0) {
+    let nearest = null;
+    let minDistance = Infinity;
+    
+    for (const customerId of unvisited) {
+      const distance = distanceMatrix[currentPoint][customerId];
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = customerId;
+      }
     }
     
-    // Start with warehouse
-    let totalDistance = 0;
+    tour.push(nearest);
+    currentPoint = nearest;
+    unvisited = unvisited.filter(id => id !== nearest);
+  }
+  
+  // Step 2: Apply 2-opt improvement
+  let improved = true;
+  let bestDistance = calculateTourDistance(tour, distanceMatrix);
+  let iterations = 0;
+  const MAX_ITERATIONS = 100; // Prevent infinite loops
+  
+  while (improved && iterations < MAX_ITERATIONS) {
+    improved = false;
+    iterations++;
     
-    // Find the nearest neighbor at each step
-    while (remainingCustomers.length > 0) {
-      let nearestIndex = 0;
-      let shortestDistance = Infinity;
-      let nearestRouteData = null;
-      
-      // Find the nearest unvisited customer
-      for (let i = 0; i < remainingCustomers.length; i++) {
-        const nextPoint = [remainingCustomers[i].latitude, remainingCustomers[i].longitude];
+    // Try swapping each possible pair of edges
+    for (let i = 1; i < tour.length - 2; i++) {
+      for (let j = i + 1; j < tour.length - 1; j++) {
+        // Skip adjacent edges
+        if (j === i + 1) continue;
         
-        const routeData = await fetchDrivingRoute(currentPoint, nextPoint);
-        const distance = parseFloat(routeData.distance);
+        // Create new tour with 2-opt swap
+        const newTour = twoOptSwap(tour, i, j);
+        const newDistance = calculateTourDistance(newTour, distanceMatrix);
         
-        if (distance < shortestDistance) {
-          shortestDistance = distance;
-          nearestIndex = i;
-          nearestRouteData = routeData;
+        // If new tour is better, keep it
+        if (newDistance < bestDistance) {
+          tour = newTour;
+          bestDistance = newDistance;
+          improved = true;
+          break; // Restart with the new tour
         }
       }
-      
-      // Add the nearest customer to our path
-      const selectedCustomer = remainingCustomers[nearestIndex];
-      visitSequence.push(selectedCustomer);
-      
-      // Add this segment to our path
-      if (path.length === 0) {
-        // For the first segment (from warehouse to first customer)
-        path = nearestRouteData.path;
-      } else {
-        // For subsequent segments, skip the first point to avoid duplicates
-        path = path.concat(nearestRouteData.path.slice(1));
-      }
-      
-      // Update current position
-      currentPoint = [selectedCustomer.latitude, selectedCustomer.longitude];
-      
-      // Save segment information
-      segmentDistances.push(nearestRouteData.distance);
-      segmentDurations.push(nearestRouteData.duration);
-      
-      // Add to segment collection for styling
-      segments.push({
-        path: nearestRouteData.path,
-        type: path.length === nearestRouteData.path.length ? 'warehouse-to-customer' : 'customer-to-customer',
-        startName: path.length === nearestRouteData.path.length ? warehouse.name : visitSequence[visitSequence.length - 2].name,
-        endName: selectedCustomer.name,
-        distance: nearestRouteData.distance,
-        duration: nearestRouteData.duration,
-        color: path.length === nearestRouteData.path.length ? '#0F3460' : '#1A508B', // Different color for first segment
-        weight: path.length === nearestRouteData.path.length ? 5 : 4
-      });
-      
-      // Add to total distance
-      totalDistance += shortestDistance;
-      
-      // Remove the customer from remaining list
-      remainingCustomers.splice(nearestIndex, 1);
+      if (improved) break;
+    }
+  }
+  
+  // Helper function to calculate total tour distance
+  function calculateTourDistance(tour, distMatrix) {
+    let total = 0;
+    for (let i = 0; i < tour.length - 1; i++) {
+      total += distMatrix[tour[i]][tour[i+1]];
+    }
+    return total;
+  }
+  
+  // Helper function to perform 2-opt swap
+  function twoOptSwap(route, i, j) {
+    // Create new route array
+    const newRoute = route.slice(0, i);
+    
+    // Add reversed segment
+    const reversedSegment = route.slice(i, j+1).reverse();
+    newRoute.push(...reversedSegment);
+    
+    // Add remaining segment
+    newRoute.push(...route.slice(j+1));
+    
+    return newRoute;
+  }
+  
+  // Step 3: Convert tour IDs back to actual locations and routes
+  const stopSequence = [];
+  const path = [];
+  const segmentDistances = [];
+  const segmentDurations = [];
+  const segments = [];
+  const directDistances = {};
+  let totalDistance = 0;
+  
+  // Extract the customers in optimized sequence
+  for (let i = 1; i < tour.length; i++) {
+    const customerId = tour[i];
+    const customer = customers.find(c => c.id === customerId);
+    stopSequence.push(customer);
+    
+    // Get route data from cache
+    const fromId = tour[i-1];
+    const fromLoc = fromId === 'warehouse' ? warehouse : customers.find(c => c.id === fromId);
+    const fromName = fromId === 'warehouse' ? warehouse.name : fromLoc.name;
+    
+    const cacheKey = `${fromId}-${customerId}`;
+    const routeData = routeDataCache[cacheKey];
+    
+    // Calculate direct distances from warehouse to each customer
+    if (fromId === 'warehouse') {
+      directDistances[customerId] = routeData.distance;
     }
     
-    return {
-      path,
-      totalDistance: totalDistance.toFixed(2),
-      stopSequence: visitSequence,
-      segmentDistances,
-      segmentDurations,
-      segments,
-      directDistances
-    };
+    // Add this segment to the path
+    if (path.length === 0) {
+      path.push(...routeData.path);
+    } else {
+      path.push(...routeData.path.slice(1)); // Skip first point to avoid duplicates
+    }
+    
+    // Save segment information
+    segmentDistances.push(routeData.distance);
+    segmentDurations.push(routeData.duration);
+    totalDistance += parseFloat(routeData.distance);
+    
+    // Add to segment collection for styling
+    segments.push({
+      path: routeData.path,
+      type: fromId === 'warehouse' ? 'warehouse-to-customer' : 'customer-to-customer',
+      startName: fromName,
+      endName: customer.name,
+      distance: routeData.distance,
+      duration: routeData.duration,
+      color: fromId === 'warehouse' ? '#0F3460' : '#1A508B',
+      weight: fromId === 'warehouse' ? 5 : 4
+    });
+  }
+  
+  return {
+    path,
+    totalDistance: totalDistance.toFixed(2),
+    stopSequence,
+    segmentDistances,
+    segmentDurations,
+    segments,
+    directDistances
   };
+};
 
   const handleWarehouseChange = (warehouse) => {
     setSelectedWarehouse(warehouse);
