@@ -1,7 +1,6 @@
-// components/Map/CreateTruck.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../services/api';
+import { createTruck } from '../../services/api';
 
 const CreateTruck = () => {
   const [truckNumber, setTruckNumber] = useState('');
@@ -12,11 +11,12 @@ const CreateTruck = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.createTruck({
+      await createTruck({
         truckNumber,
         driverName
       });
-      navigate('/trucks');
+      // Redirect to truck assignment page after successful creation
+      navigate('/assign-truck');
     } catch (err) {
       setError(err.message);
     }
@@ -38,6 +38,7 @@ const CreateTruck = () => {
               onChange={(e) => setTruckNumber(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded"
               required
+              placeholder="Enter truck number (e.g., TR-001)"
             />
           </div>
           <div className="mb-4">
@@ -48,14 +49,24 @@ const CreateTruck = () => {
               onChange={(e) => setDriverName(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded"
               required
+              placeholder="Enter driver's full name"
             />
           </div>
-          <button
-            type="submit"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Create Truck
-          </button>
+          <div className="flex justify-between">
+            <button
+              type="submit"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Create Truck
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/assign-truck')}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+            >
+              Cancel
+            </button>
+          </div>
         </form>
       </div>
     </div>

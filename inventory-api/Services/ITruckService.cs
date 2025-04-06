@@ -13,7 +13,10 @@ namespace inventory_api.Services
         Task<bool> AssignOrdersToTruckAsync(AssignTruckDto assignTruckDto);
         Task<bool> DeleteTruckAsync(int id);
         
-        // New method for assigned orders
+        // Method for assigned orders
         Task<List<dynamic>> GetOrdersWithTruckAssignmentAsync();
+        
+        // New method to get available trucks
+        Task<List<TruckDto>> GetAvailableTrucksAsync();
     }
 }

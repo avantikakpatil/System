@@ -30,6 +30,23 @@ namespace inventory_api.Services
                 AssignedOrderIds = t.AssignedOrders.Select(o => o.Id).ToList()
             }).ToList();
         }
+        
+        public async Task<List<TruckDto>> GetAvailableTrucksAsync()
+        {
+            var trucks = await _context.Trucks
+                .Include(t => t.AssignedOrders)
+                .ToListAsync();
+
+            return trucks.Select(t => new TruckDto
+            {
+                Id = t.Id,
+                TruckNumber = t.TruckNumber,
+                DriverName = t.DriverName,
+                IsAvailable = t.IsAvailable,
+                LastMaintenanceDate = t.LastMaintenanceDate,
+                AssignedOrderIds = t.AssignedOrders.Select(o => o.Id).ToList()
+            }).ToList();
+        }
 
         public async Task<TruckDto> GetTruckByIdAsync(int id)
         {
@@ -57,7 +74,8 @@ namespace inventory_api.Services
             {
                 TruckNumber = createTruckDto.TruckNumber,
                 DriverName = createTruckDto.DriverName,
-                IsAvailable = true
+                IsAvailable = true,
+                LastMaintenanceDate = DateTime.UtcNow // Set initial maintenance date
             };
 
             _context.Trucks.Add(truck);
@@ -69,6 +87,7 @@ namespace inventory_api.Services
                 TruckNumber = truck.TruckNumber,
                 DriverName = truck.DriverName,
                 IsAvailable = truck.IsAvailable,
+                LastMaintenanceDate = truck.LastMaintenanceDate,
                 AssignedOrderIds = new List<int>()
             };
         }
@@ -79,27 +98,24 @@ namespace inventory_api.Services
             
             try
             {
-                // Find existing truck or create a new one
+                // Find existing truck by ID instead of truck number
                 var truck = await _context.Trucks
                     .Include(t => t.AssignedOrders)
-                    .FirstOrDefaultAsync(t => t.TruckNumber == assignTruckDto.TruckNumber);
+                    .FirstOrDefaultAsync(t => t.Id == assignTruckDto.TruckId);
 
                 if (truck == null)
                 {
-                    truck = new Truck
-                    {
-                        TruckNumber = assignTruckDto.TruckNumber,
-                        DriverName = assignTruckDto.DriverName,
-                        IsAvailable = false
-                    };
-                    _context.Trucks.Add(truck);
-                    await _context.SaveChangesAsync();
+                    return false;
                 }
-                else
+                
+                // Update driver name if provided
+                if (!string.IsNullOrEmpty(assignTruckDto.DriverName))
                 {
                     truck.DriverName = assignTruckDto.DriverName;
-                    truck.IsAvailable = false;
                 }
+                
+                // Set truck as not available when orders are assigned
+                truck.IsAvailable = assignTruckDto.OrderIds.Count == 0;
 
                 // Clear previous order assignments if any
                 var existingOrders = await _context.Orders
@@ -112,8 +128,6 @@ namespace inventory_api.Services
                     {
                         order.TruckId = null;
                         order.Truck = null;
-                        // If you have an IsSelected flag in your Order model
-                        // order.IsSelected = false;
                     }
                 }
 
@@ -126,8 +140,6 @@ namespace inventory_api.Services
                 {
                     order.TruckId = truck.Id;
                     order.Truck = truck;
-                    // If you have an IsSelected flag in your Order model
-                    // order.IsSelected = true;
                 }
 
                 await _context.SaveChangesAsync();
@@ -141,32 +153,31 @@ namespace inventory_api.Services
             }
         }
 
-        public async Task<List<AssignedOrderDto>> GetOrdersWithTruckAssignmentAsync()
-{
-    try
-    {
-        // Get orders with truck assignments
-        var assignedOrders = await _context.Orders
-            .Where(o => o.TruckId != null)
-            .Include(o => o.Truck)
-            .Select(o => new AssignedOrderDto
+        public async Task<List<dynamic>> GetOrdersWithTruckAssignmentAsync()
+        {
+            try
             {
-                Id = o.Id,
-                CustomerName = o.CustomerName ?? string.Empty,
-                WarehouseName = o.WarehouseName ?? string.Empty,
-                TruckNumber = o.Truck != null ? o.Truck.TruckNumber : string.Empty,
-                TruckId = o.TruckId ?? 0
-            })
-            .ToListAsync();
+                var assignedOrders = await _context.Orders
+                    .Where(o => o.TruckId != null)
+                    .Include(o => o.Truck)
+                    .Select(o => new
+                    {
+                        id = o.Id,
+                        customerName = o.CustomerName,
+                        truckNumber = o.Truck != null ? o.Truck.TruckNumber : string.Empty,
+                        truckId = o.Truck != null ? o.Truck.Id : 0,
+                        warehouseName = o.WarehouseName ?? string.Empty
+                    })
+                    .ToListAsync();
 
-        return assignedOrders;
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error getting orders with truck assignments");
-        throw;
-    }
-}
+                return assignedOrders.Cast<dynamic>().ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetOrdersWithTruckAssignmentAsync: {ex.Message}");
+                throw;
+            }
+        }
 
         public async Task<bool> DeleteTruckAsync(int id)
         {
@@ -180,8 +191,6 @@ namespace inventory_api.Services
             {
                 order.TruckId = null;
                 order.Truck = null;
-                // If you have an IsSelected flag
-                // order.IsSelected = false;
             }
 
             _context.Trucks.Remove(truck);
@@ -189,33 +198,31 @@ namespace inventory_api.Services
             return true;
         }
         
-        // New method to get assigned orders with truck information
+        // Method to get assigned orders with truck information
         public async Task<List<object>> GetAssignedOrdersAsync()
-{
-    try
-    {
-        var assignedOrders = await _context.Orders
-            .Where(o => o.TruckId != null)
-            .Include(o => o.Truck)
-            .Select(o => new
+        {
+            try
             {
-                id = o.Id,
-                customerName = o.CustomerName,
-                truckNumber = o.Truck != null ? o.Truck.TruckNumber : string.Empty,
-                warehouseName = o.WarehouseName ?? string.Empty
-                // Add other order properties as needed by the frontend
-            })
-            .ToListAsync();
-            
-        return assignedOrders.Cast<object>().ToList();
-    }
-    catch (Exception ex)
-    {
-        // Log the exception details
-        Console.WriteLine($"Error in GetAssignedOrdersAsync: {ex.Message}");
-        // Rethrow or return empty list depending on error handling strategy
-        throw;
-    }
-}
+                var assignedOrders = await _context.Orders
+                    .Where(o => o.TruckId != null)
+                    .Include(o => o.Truck)
+                    .Select(o => new
+                    {
+                        id = o.Id,
+                        customerName = o.CustomerName,
+                        truckNumber = o.Truck != null ? o.Truck.TruckNumber : string.Empty,
+                        truckId = o.Truck != null ? o.Truck.Id : 0,
+                        warehouseName = o.WarehouseName ?? string.Empty
+                    })
+                    .ToListAsync();
+                    
+                return assignedOrders.Cast<object>().ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetAssignedOrdersAsync: {ex.Message}");
+                throw;
+            }
+        }
     }
 }

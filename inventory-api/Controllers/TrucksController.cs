@@ -33,6 +33,20 @@ namespace inventory_api.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        
+        [HttpGet("available")]
+        public async Task<ActionResult<List<TruckDto>>> GetAvailableTrucks()
+        {
+            try
+            {
+                return await _truckService.GetAvailableTrucksAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available trucks");
+                return StatusCode(500, "Internal server error");
+            }
+        }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<TruckDto>> GetTruckById(int id)
@@ -103,13 +117,12 @@ namespace inventory_api.Controllers
             }
         }
         
-        // Simplified assigned orders endpoint
+        // Endpoint for assigned orders
         [HttpGet("assigned-orders")]
         public async Task<ActionResult> GetAssignedOrders()
         {
             try
             {
-                // Get all orders that have a truck assigned
                 var orders = await _truckService.GetOrdersWithTruckAssignmentAsync();
                 return Ok(orders);
             }

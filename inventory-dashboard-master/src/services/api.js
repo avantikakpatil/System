@@ -266,6 +266,16 @@ export const getTrucks = async () => {
   }
 };
 
+export const getAvailableTrucks = async () => {
+  try {
+    const response = await api.get('/trucks/available');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching available trucks:", error);
+    throw error;
+  }
+};
+
 export const getTruckById = async (id) => {
   try {
     const response = await api.get(`/trucks/${id}`);
@@ -306,25 +316,13 @@ export const deleteTruck = async (id) => {
   }
 };
 
-// Add this new function for fetching assigned orders
 export const getAssignedOrders = async () => {
   try {
-    // Try to get assigned orders - if this endpoint exists
     const response = await api.get('/trucks/assigned-orders');
     return response.data;
   } catch (error) {
-    // If we get a 400 error, fall back to a different approach
-    if (error.response && error.response.status === 400) {
-      console.warn("Assigned orders endpoint returned 400, using fallback method");
-      
-      // Fallback: Get all orders and filter those that have a truckNumber
-      const allOrders = await api.get('/orders');
-      return allOrders.data.filter(order => order.truckNumber);
-    }
-    
     console.error("Error fetching assigned orders:", error);
-    // Return empty array instead of throwing to prevent component from crashing
-    return [];
+    throw error;
   }
 };
 

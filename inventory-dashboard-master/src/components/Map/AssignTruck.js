@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api, { assignTruck } from '../../services/api';
-// Import the getAssignedOrders function from your API service
-import { getAssignedOrders } from '../../services/api'; // Add this import
+import api, { assignTruck, getAvailableTrucks } from '../../services/api';
+import { getAssignedOrders } from '../../services/api';
 
 const AssignTruck = () => {
   const [orders, setOrders] = useState([]);
+  const [trucks, setTrucks] = useState([]);
   const [selectedOrders, setSelectedOrders] = useState([]);
-  const [truckNumber, setTruckNumber] = useState('');
+  const [selectedTruckId, setSelectedTruckId] = useState('');
   const [driverName, setDriverName] = useState('');
   const [assignedOrders, setAssignedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,57 +15,74 @@ const AssignTruck = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get('/orders');
-        setOrders(response.data);
+        setLoading(true);
+        
+        // Fetch orders
+        const ordersResponse = await api.get('/orders');
+        setOrders(ordersResponse.data);
+        
+        // Fetch trucks
+        const trucksData = await getAvailableTrucks();
+        setTrucks(trucksData);
+        
+        // Fetch assigned orders
+        const assignedOrdersData = await getAssignedOrders();
+        setAssignedOrders(assignedOrdersData);
+        
+        setLoading(false);
       } catch (err) {
         setError(err.message);
-      } finally {
         setLoading(false);
       }
     };
 
-    const fetchAssignedOrders = async () => {
-        try {
-          // Use the imported getAssignedOrders function
-          const response = await getAssignedOrders();
-          setAssignedOrders(response);
-        } catch (err) {
-          console.error("Failed to fetch assigned orders:", err);
-          setError("Unable to load assigned orders. Please try again later.");
-          // Initialize with empty array to prevent undefined errors
-          setAssignedOrders([]);
-        }
-      };
-
-    fetchOrders();
-    fetchAssignedOrders();
+    fetchData();
   }, []);
 
-  // Rest of your component code remains the same
   const handleOrderSelection = (orderId) => {
     setSelectedOrders(prev => 
       prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
     );
   };
 
+  const handleTruckSelection = (truckId) => {
+    setSelectedTruckId(truckId);
+    
+    // Auto-fill driver name when selecting a truck
+    const selectedTruck = trucks.find(truck => truck.id === parseInt(truckId));
+    if (selectedTruck) {
+      setDriverName(selectedTruck.driverName);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!selectedTruckId) {
+      setError("Please select a truck");
+      return;
+    }
+    
     try {
       await assignTruck({
         orderIds: selectedOrders,
-        truckNumber,
-        driverName,
+        truckId: parseInt(selectedTruckId),
+        driverName: driverName,
       });
 
-      // Refresh the assigned orders list after submission
+      // Refresh the data after submission
       const refreshedOrders = await getAssignedOrders();
       setAssignedOrders(refreshedOrders);
+      
+      // Refresh the available trucks
+      const refreshedTrucks = await getAvailableTrucks();
+      setTrucks(refreshedTrucks);
 
       // Clear form
       setSelectedOrders([]);
-      setTruckNumber('');
+      setSelectedTruckId('');
       setDriverName('');
 
     } catch (err) {
@@ -73,7 +90,7 @@ const AssignTruck = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-8">Loading orders...</div>;
+  if (loading) return <div className="text-center py-8">Loading data...</div>;
   if (error) return <div className="text-center py-8 text-red-500">Error: {error}</div>;
 
   const groupedOrders = orders.reduce((acc, order) => {
@@ -121,16 +138,25 @@ const AssignTruck = () => {
               ))}
             </div>
           </div>
+          
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2">Truck Number</label>
-            <input
-              type="text"
-              value={truckNumber}
-              onChange={(e) => setTruckNumber(e.target.value)}
+            <label className="block text-gray-700 text-sm font-bold mb-2">Select Truck</label>
+            <select
+              value={selectedTruckId}
+              onChange={(e) => handleTruckSelection(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded"
               required
-            />
+            >
+              <option value="">-- Select a Truck --</option>
+              {trucks.map(truck => (
+                <option key={truck.id} value={truck.id}>
+                  {truck.truckNumber} - {truck.driverName} 
+                  {!truck.isAvailable && " (Currently Assigned)"}
+                </option>
+              ))}
+            </select>
           </div>
+          
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2">Driver Name</label>
             <input
@@ -141,9 +167,11 @@ const AssignTruck = () => {
               required
             />
           </div>
+          
           <button
             type="submit"
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+            disabled={!selectedTruckId || selectedOrders.length === 0}
           >
             Assign Truck
           </button>
@@ -160,6 +188,7 @@ const AssignTruck = () => {
             {assignedOrders.map((order) => (
               <li key={order.id} className="border-b py-2">
                 <span className="font-semibold">Order {order.id}</span> - {order.customerName}, Truck: {order.truckNumber}
+                {order.warehouseName && `, Warehouse: ${order.warehouseName}`}
               </li>
             ))}
           </ul>
