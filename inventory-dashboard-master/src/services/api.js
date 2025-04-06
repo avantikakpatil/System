@@ -306,6 +306,21 @@ export const assignTruck = async (assignData) => {
   }
 };
 
+export const removeAssignment = async (orderId) => {
+  try {
+    // Using the same endpoint as assignment but with a null truckId to indicate unassignment
+    const response = await api.post('/trucks/assign', {
+      orderIds: [orderId],
+      truckId: null,
+      driverName: null
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error removing assignment for order ${orderId}:`, error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
 export const deleteTruck = async (id) => {
   try {
     const response = await api.delete(`/trucks/${id}`);
@@ -325,7 +340,6 @@ export const getAssignedOrders = async () => {
     throw error;
   }
 };
-
 
 // Email validation helper function
 function isValidEmail(email) {
