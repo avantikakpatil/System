@@ -98,6 +98,8 @@ namespace inventory_api.Controllers
             }
         }
 
+
+
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteOrder(int id)
         {

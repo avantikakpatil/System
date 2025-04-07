@@ -116,7 +116,51 @@ const Map = () => {
         setTrucks(availableTrucksData);
         
         // Fetch orders that have been assigned to trucks
-        const assignedOrdersData = await getAssignedOrders();
+        let assignedOrdersData = await getAssignedOrders();
+        
+        // Enhanced assignedOrders with additional location data if needed
+        const enhancedAssignedOrders = await Promise.all(
+          assignedOrdersData.map(async (order) => {
+            // If location data is missing, fetch complete order details
+            if (!order.latitude || !order.longitude || !order.customerName) {
+              try {
+                // Try to get the complete order details
+                const orderResponse = await api.get(`/orders/${order.id}`);
+                const orderDetails = orderResponse.data;
+                
+                // If order details don't have location and we have a customerId, fetch customer
+                if ((!orderDetails.latitude || !orderDetails.longitude) && orderDetails.customerId) {
+                  try {
+                    const customerResponse = await api.get(`/users/${orderDetails.customerId}`);
+                    const customerDetails = customerResponse.data;
+                    
+                    return { 
+                      ...order, 
+                      ...orderDetails,
+                      latitude: customerDetails.latitude,
+                      longitude: customerDetails.longitude,
+                      customerName: customerDetails.name || order.customerName
+                    };
+                  } catch (err) {
+                    console.error(`Failed to fetch customer details for order ${order.id}:`, err);
+                  }
+                }
+                
+                return { ...order, ...orderDetails };
+              } catch (err) {
+                console.error(`Failed to fetch details for order ${order.id}:`, err);
+                return order;
+              }
+            }
+            return order;
+          })
+        );
+        
+        // Update assignedOrders with enhanced data
+        assignedOrdersData = enhancedAssignedOrders.filter(order => 
+          order && (order.latitude || order.customerId)
+        );
+        
         setAssignedOrders(assignedOrdersData);
         
         // Create a list of trucks that have orders assigned to them
@@ -160,11 +204,9 @@ const Map = () => {
     fetchOrders();
   }, []);
 
-  // We don't need the useEffect for trucksWithOrders anymore since we're handling it in fetchTrucksAndOrders
-
   useEffect(() => {
     // Create delivery routes when truck, warehouse and customers are loaded
-    if (selectedTruck && selectedWarehouse && customers.length > 0 && assignedOrders.length > 0) {
+    if (selectedTruck && selectedWarehouse && (customers.length > 0 || assignedOrders.length > 0)) {
       createDeliveryRoutes();
     }
   }, [selectedTruck, selectedWarehouse, customers, assignedOrders]);
@@ -241,22 +283,10 @@ const Map = () => {
   const createDeliveryRoutes = async () => {
     setIsLoading(true);
     
-    // UPDATED: Use assignedOrders instead of orders
     // Get customers with orders assigned to the selected truck and from the selected warehouse
-    const customersWithOrders = assignedOrders
-      .filter(order => 
-        order.warehouseId === selectedWarehouse.id && 
-        order.truckId === selectedTruck.id
-      )
-      .map(order => {
-        const customer = customers.find(c => c.id === order.customerId);
-        return {
-          ...customer,
-          orderId: order.id
-        };
-      })
-      .filter(customer => customer && customer.latitude && customer.longitude);
-
+    // UPDATED: Use visibleCustomers function to get proper customer data
+    const customersWithOrders = getVisibleCustomers();
+    
     if (customersWithOrders.length === 0) {
       setRoutePath([]);
       setRouteSegments([]);
@@ -326,8 +356,6 @@ const Map = () => {
     
     setIsLoading(false);
   };
-
-  // [Rest of the code remains the same as before]
 
   // Helper function to calculate estimated arrival time
   const calculateEstimatedArrival = (stopIndex, durations) => {
@@ -555,18 +583,50 @@ const Map = () => {
     setSelectedTruck(truck);
   };
 
-  // Filter customers to only show those with assigned orders from the selected warehouse AND assigned to the selected truck
+  // UPDATED: Modified function to properly handle location data
   const getVisibleCustomers = () => {
     if (!selectedWarehouse || !selectedTruck || !assignedOrders.length) return [];
     
-    // UPDATED: Use assignedOrders instead of orders
-    return customers.filter(customer => 
-      assignedOrders.some(order => 
-        order.warehouseId === selectedWarehouse.id && 
-        order.truckId === selectedTruck.id && 
-        order.customerId === customer.id
-      )
+    // First get all assigned orders for this truck and warehouse
+    const relevantOrders = assignedOrders.filter(order => 
+      order.warehouseId === selectedWarehouse.id && 
+      order.truckId === selectedTruck.id
     );
+    
+    // Then map these to actual customer objects with location data
+    return relevantOrders.map(order => {
+      // Try to find the customer in our customers list
+      const customer = customers.find(c => c.id === order.customerId);
+      
+      // If we found the customer and they have location data
+      if (customer && customer.latitude && customer.longitude) {
+        return {
+          ...customer,
+          orderId: order.id
+        };
+      }
+      
+      // If customer exists but missing location data, use order's location data
+      if (customer) {
+        return {
+          ...customer,
+          latitude: order.latitude || customer.latitude,
+          longitude: order.longitude || customer.longitude,
+          orderId: order.id
+        };
+      }
+      
+      // If no customer found, create one from order data
+      return {
+        id: order.customerId || `order-${order.id}`,
+        name: order.customerName || `Customer for Order #${order.id}`,
+        email: order.customerEmail || '',
+        location: order.customerAddress || '',
+        latitude: order.latitude,
+        longitude: order.longitude,
+        orderId: order.id
+      };
+    }).filter(customer => customer && customer.latitude && customer.longitude);
   };
 
   const visibleCustomers = getVisibleCustomers();

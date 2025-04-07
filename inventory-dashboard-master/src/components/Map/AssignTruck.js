@@ -32,16 +32,29 @@ const AssignTruck = () => {
       const trucksData = await getAvailableTrucks();
       setTrucks(trucksData);
       
-      // Fetch assigned orders
+      // Fetch assigned orders with customer details
       const assignedOrdersData = await getAssignedOrders();
-      // Log assigned orders for debugging
       console.log("Assigned orders data:", assignedOrdersData);
-      // Log the first order structure if available
-      if (assignedOrdersData && assignedOrdersData.length > 0) {
-        console.log("Sample assigned order structure:", assignedOrdersData[0]);
-      }
-      setAssignedOrders(assignedOrdersData);
       
+      // Enhance assigned orders with full customer details if needed
+      const enhancedAssignedOrders = await Promise.all(
+        assignedOrdersData.map(async (order) => {
+          // If customer details are missing, fetch them
+          if (!order.latitude || !order.longitude || !order.customerName) {
+            try {
+              // Fetch complete order details from orders API
+              const orderDetails = await api.get(`/orders/${order.id}`);
+              return { ...order, ...orderDetails.data };
+            } catch (err) {
+              console.error(`Failed to fetch details for order ${order.id}:`, err);
+              return order;
+            }
+          }
+          return order;
+        })
+      );
+      
+      setAssignedOrders(enhancedAssignedOrders);
       setLoading(false);
     } catch (err) {
       setError(err.message);
@@ -422,23 +435,31 @@ const AssignTruck = () => {
                             <td className="px-6 py-4 whitespace-nowrap">#{order.id}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               {getPropertySafely(order, 'customerName', ['customer', 'customer_name'])}
+                              {order.companyName && 
+                                <div className="text-xs text-gray-500">
+                                  {getPropertySafely(order, 'companyName', ['company', 'company_name'])}
+                                </div>
+                              }
                             </td>
+                            
                             <td className="px-6 py-4 whitespace-nowrap">
                               {getPropertySafely(order, 'warehouseName', ['warehouse', 'warehouse_name'])}
                             </td>
                             <td className="px-6 py-4">
-                              {order.deliveryAddress || getPropertySafely(order, 'address', ['delivery_address']) ? (
+                              {order.deliveryAddress || getPropertySafely(order, 'shippingAddress', ['shipping_address', 'address', 'delivery_address']) ? (
                                 <div className="mb-1">
-                                  {order.deliveryAddress || getPropertySafely(order, 'address', ['delivery_address'])}
+                                  {order.deliveryAddress || getPropertySafely(order, 'shippingAddress', ['shipping_address', 'address', 'delivery_address'])}
                                 </div>
                               ) : null}
-                              {(order.latitude || order.lat || order.longitude || order.lng) ? (
+                              {(order.latitude !== undefined || order.lat !== undefined || 
+                                order.longitude !== undefined || order.lng !== undefined) ? (
                                 <div className="text-sm text-gray-600">
                                   {getPropertySafely(order, 'latitude', ['lat'])}, 
                                   {getPropertySafely(order, 'longitude', ['lng'])}
                                 </div>
                               ) : (
-                                !order.deliveryAddress && !getPropertySafely(order, 'address', ['delivery_address']) && 
+                                !order.deliveryAddress && 
+                                !getPropertySafely(order, 'shippingAddress', ['shipping_address', 'address', 'delivery_address']) && 
                                 <span className="text-gray-400">No location data</span>
                               )}
                             </td>

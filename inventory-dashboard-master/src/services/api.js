@@ -333,7 +333,7 @@ export const deleteTruck = async (id) => {
 
 export const getAssignedOrders = async () => {
   try {
-    const response = await api.get('/trucks/assigned-orders');
+    const response = await api.get('/trucks/assigned-orders?includeCustomerDetails=true');
     return response.data;
   } catch (error) {
     console.error("Error fetching assigned orders:", error);
