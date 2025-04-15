@@ -5,7 +5,7 @@ import { FaTruck } from "react-icons/fa";
 
 import {
   FaHome, FaShoppingCart, FaBoxOpen, FaBox, FaUser,
-  FaFileInvoice, FaChartBar, FaFacebook, FaAmazon, FaPinterest,  FaRoute, FaMap 
+  FaFileInvoice, FaChartBar, FaFacebook, FaAmazon, FaPinterest, FaRoute, FaMap, FaListOl
 } from 'react-icons/fa';  
 
 const Sidebar = () => {   
@@ -29,13 +29,16 @@ const Sidebar = () => {
           <SidebarItem icon={<FaBox />} text="Products" />
         </Link>         
         <Link to="/assign-truck">
-  <SidebarItem icon={<FaTruck />} text="Assign Truck" />
-</Link>
+          <SidebarItem icon={<FaTruck />} text="Assign Truck" />
+        </Link>
+        <Link to="/loading-sequence">
+          <SidebarItem icon={<FaListOl />} text="Loading Sequence" />
+        </Link>
         <Link to="/warehouses">
           <SidebarItem icon={<FaTruck />} text="Warehouses" />
         </Link>
         <Link to="/delivery-routes">
-          <SidebarItem icon={<FaMap className="h-5 w-5" />}  text="Delivery Routes" />
+          <SidebarItem icon={<FaMap className="h-5 w-5" />} text="Delivery Routes" />
         </Link>
 
         <SidebarItem icon={<FaChartBar />} text="Reports" active={false} />                  
@@ -54,6 +57,5 @@ const Sidebar = () => {
     </div>   
   ); 
 };  
-
 
 export default Sidebar;

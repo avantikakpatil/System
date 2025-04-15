@@ -12,7 +12,7 @@ const CreateOrder = () => {
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     customerId: '',
-    warehouseId: '', // Make sure this is initialized
+    warehouseId: '',
     notes: ''
   });
 
@@ -88,7 +88,6 @@ const CreateOrder = () => {
     }
     
     try {
-      // Important: Make sure warehouseId is either a number or null
       const orderData = {
         CustomerId: parseInt(formData.customerId),
         WarehouseId: formData.warehouseId ? parseInt(formData.warehouseId) : null,
@@ -140,11 +139,11 @@ const CreateOrder = () => {
                 required
               >
                 <option value="">Select a customer</option>
-                {customers.map(customer => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
+{customers.map(customer => (
+  <option key={customer.id} value={customer.id}>
+    {customer.customerName} ({customer.email})
+  </option>
+))}
               </select>
             </div>
             

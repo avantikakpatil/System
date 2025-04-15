@@ -15,6 +15,8 @@ import EditWarehouse from './components/Warehouses/EditWarehouse';
 import DeliveryRoutes from './components/DeliveryRoutes';
 import AssignTruck from './components/Map/AssignTruck';  // Import new component
 import CreateTruckPage from './components/Map/CreateTruck'; // adjust path based on your project
+import LoadingSequence from './components/Map/LoadingSequence'; // adjust path based on your project
+
 
 
 function App() {
@@ -38,6 +40,9 @@ function App() {
             <Route path="/delivery-routes" element={<DeliveryRoutes />} />
             <Route path="/assign-truck" element={<AssignTruck />} />  {/* New route for AssignTruck */}
             <Route path="/trucks/create" element={<CreateTruckPage />} />
+            <Route path="/loading-sequence" element={<LoadingSequence />} />
+
+
 
           </Routes>
         </div>

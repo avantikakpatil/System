@@ -76,7 +76,13 @@ const Map = () => {
   const [routeStops, setRouteStops] = useState([]);
   const [driverPath, setDriverPath] = useState([]);
   const [trucksWithOrders, setTrucksWithOrders] = useState([]);
+  const [orderDetails, setOrderDetails] = useState({});
+  const [loadingSequence, setLoadingSequence] = useState([]);
+  const [showLoadingSequence, setShowLoadingSequence] = useState(false); // Control popup visibility
+  const [loadingSequenceMode, setLoadingSequenceMode] = useState('simple'); // 'simple', 'detailed'
+  const [isPrintView, setIsPrintView] = useState(false);
   const mapRef = useRef(null);
+  const printRef = useRef(null);
 
   useEffect(() => {
     // Fetch warehouses
@@ -84,11 +90,6 @@ const Map = () => {
       try {
         const response = await api.get('/warehouses');
         setWarehouses(response.data);
-        
-        // Select the first warehouse by default
-        if (response.data.length > 0) {
-          setSelectedWarehouse(response.data[0]);
-        }
       } catch (error) {
         console.error('Error fetching warehouses:', error);
       }
@@ -156,9 +157,29 @@ const Map = () => {
           })
         );
         
-        // Update assignedOrders with enhanced data
-        assignedOrdersData = enhancedAssignedOrders.filter(order => 
-          order && (order.latitude || order.customerId)
+        // Update assignedOrders with enhanced data and include warehouse details
+        assignedOrdersData = await Promise.all(enhancedAssignedOrders
+          .filter(order => order && (order.latitude || order.customerId))
+          .map(async (order) => {
+            // Fetch warehouse details if warehouseId exists
+            if (order.warehouseId) {
+              try {
+                const warehouseResponse = await api.get(`/warehouses/${order.warehouseId}`);
+                const warehouseDetails = warehouseResponse.data;
+                return {
+                  ...order,
+                  warehouseName: warehouseDetails.Name,
+                  warehouseLatitude: warehouseDetails.Latitude,
+                  warehouseLongitude: warehouseDetails.Longitude,
+                  warehouseAddress: warehouseDetails.Address
+                };
+              } catch (err) {
+                console.error(`Failed to fetch warehouse details for order ${order.id}:`, err);
+                return order;
+              }
+            }
+            return order;
+          })
         );
         
         setAssignedOrders(assignedOrdersData);
@@ -192,6 +213,13 @@ const Map = () => {
     const fetchOrders = async () => {
       try {
         const response = await api.get('/orders');
+        
+        // Create a dictionary of order details indexed by order ID
+        const orderDetailsDict = {};
+        response.data.forEach(order => {
+          orderDetailsDict[order.id] = order;
+        });
+        setOrderDetails(orderDetailsDict);
         setOrders(response.data);
       } catch (error) {
         console.error('Error fetching orders:', error);
@@ -203,6 +231,36 @@ const Map = () => {
     fetchTrucksAndOrders(); // UPDATED: use the new combined function
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    // Set the warehouse based on selected truck's orders
+    if (selectedTruck && assignedOrders.length > 0) {
+      const truckOrders = assignedOrders.filter(order => order.truckId === selectedTruck.id);
+      
+      if (truckOrders.length > 0) {
+        // Get the warehouse from the first order
+        const firstOrder = truckOrders[0];
+        
+        // Find the warehouse in warehouses array or create it from order data
+        if (firstOrder.warehouseId) {
+          const warehouse = warehouses.find(w => w.id === firstOrder.warehouseId);
+          
+          if (warehouse) {
+            setSelectedWarehouse(warehouse);
+          } else if (firstOrder.warehouseLatitude && firstOrder.warehouseLongitude) {
+            // Create warehouse object from order data if not found in warehouses array
+            setSelectedWarehouse({
+              id: firstOrder.warehouseId,
+              name: firstOrder.warehouseName || 'Warehouse',
+              location: firstOrder.warehouseAddress || 'Address not available',
+              latitude: firstOrder.warehouseLatitude,
+              longitude: firstOrder.warehouseLongitude
+            });
+          }
+        }
+      }
+    }
+  }, [selectedTruck, assignedOrders, warehouses]);
 
   useEffect(() => {
     // Create delivery routes when truck, warehouse and customers are loaded
@@ -294,6 +352,7 @@ const Map = () => {
       setCustomerDistances({});
       setRouteStops([]);
       setDriverPath([]);
+      setLoadingSequence([]);
       setIsLoading(false);
       return;
     }
@@ -333,7 +392,9 @@ const Map = () => {
           distance: optimizedRoute.segmentDistances[index] + ' km',
           duration: optimizedRoute.segmentDurations[index] ? 
             `${optimizedRoute.segmentDurations[index]} min` : 'N/A',
-          estimatedArrival: calculateEstimatedArrival(index, optimizedRoute.segmentDurations)
+          estimatedArrival: calculateEstimatedArrival(index, optimizedRoute.segmentDurations),
+          orderId: customer.orderId, // Store the orderId for loading sequence
+          customerId: customer.id // Store the customerId for loading sequence
         });
         
         // Add to bounds and distances
@@ -354,7 +415,52 @@ const Map = () => {
     // Set the route stops
     setRouteStops(stops);
     
+    // Create loading sequence based on route stops
+    generateLoadingSequence(stops);
+    
     setIsLoading(false);
+  };
+
+  // Generate loading sequence based on the optimized delivery route
+  const generateLoadingSequence = (stops) => {
+    // Skip the warehouse (first stop)
+    const deliveryStops = stops.slice(1);
+    
+    // We want to load the truck in reverse order of delivery
+    // So that the first deliveries are loaded last (closest to the truck door)
+    const reversedStops = [...deliveryStops].reverse();
+    
+    const sequence = reversedStops.map((stop, index) => {
+      // Get the order details for this stop
+      const orderInfo = orderDetails[stop.orderId] || 
+                        assignedOrders.find(o => o.id === stop.orderId);
+      
+      // Get the customer details - IMPROVED LOGIC HERE
+      const customerInfo = customers.find(c => c.id === stop.customerId) || {};
+      
+      // Find the original assigned order with potentially more complete data
+      const assignedOrder = assignedOrders.find(o => o.id === stop.orderId);
+      
+      // Determine the best customer name to use
+      const customerName = stop.name || // First try the stop name from the route calculation
+                          assignedOrder?.customerName || // Then try customer name from assigned order
+                          customerInfo?.name || // Then customer name from the customer object
+                          `Customer for Order #${stop.orderId}`; // Fallback
+      
+      return {
+        loadingPosition: index + 1, // Loading position (1-based)
+        deliveryPosition: stops.length - index - 1, // Delivery position (from the end)
+        orderId: stop.orderId,
+        customerName: customerName,
+        customerLocation: customerInfo.location || assignedOrder?.customerAddress || 'Unknown Location',
+        orderItems: orderInfo?.items || orderInfo?.orderItems || [],
+        // Add additional product details if available
+        productDetails: orderInfo?.products || [],
+        estimatedArrival: stop.estimatedArrival
+      };
+    });
+    
+    setLoadingSequence(sequence);
   };
 
   // Helper function to calculate estimated arrival time
@@ -575,10 +681,6 @@ const Map = () => {
     };
   };
 
-  const handleWarehouseChange = (warehouse) => {
-    setSelectedWarehouse(warehouse);
-  };
-
   const handleTruckChange = (truck) => {
     setSelectedTruck(truck);
   };
@@ -629,57 +731,77 @@ const Map = () => {
     }).filter(customer => customer && customer.latitude && customer.longitude);
   };
 
+  // Toggle loading sequence popup
+  const toggleLoadingSequence = () => {
+    setShowLoadingSequence(!showLoadingSequence);
+  };
+
+  // Toggle between simple and detailed loading sequence view
+  const toggleSequenceMode = () => {
+    setLoadingSequenceMode(loadingSequenceMode === 'simple' ? 'detailed' : 'simple');
+  };
+
+  // Helper to print loading sequence
+  const printLoadingSequence = () => {
+    setIsPrintView(true);
+    setTimeout(() => {
+      window.print();
+      setIsPrintView(false);
+    }, 500);
+  };
+
+  // Close the loading sequence popup
+  const closeLoadingSequence = () => {
+    setShowLoadingSequence(false);
+  };
+
   const visibleCustomers = getVisibleCustomers();
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-md">
       <h2 className="text-xl font-semibold mb-4">Driver Delivery Route</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Truck:
-          </label>
-          <select 
-            className="w-full border border-gray-300 rounded-md p-2"
-            value={selectedTruck?.id || ''}
-            onChange={(e) => {
-              const selected = trucks.find(t => t.id.toString() === e.target.value);
-              handleTruckChange(selected);
-            }}
-          >
-            <option value="">-- Select a Truck --</option>
-            {trucksWithOrders.map(truck => (
-              <option key={truck.id} value={truck.id}>
-                {truck.number || truck.truckNumber} - Driver: {truck.driverName}
-              </option>
-            ))}
-          </select>
-          {trucksWithOrders.length === 0 && (
-            <p className="mt-1 text-sm text-red-500">No trucks with assigned orders available.</p>
-          )}
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Warehouse:
-          </label>
-          <select 
-            className="w-full border border-gray-300 rounded-md p-2"
-            value={selectedWarehouse?.id || ''}
-            onChange={(e) => {
-              const selected = warehouses.find(w => w.id.toString() === e.target.value);
-              handleWarehouseChange(selected);
-            }}
-          >
-            {warehouses.map(warehouse => (
-              <option key={warehouse.id} value={warehouse.id}>
-                {warehouse.name} - {warehouse.location}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select Truck:
+        </label>
+        <select 
+          className="w-full border border-gray-300 rounded-md p-2"
+          value={selectedTruck?.id || ''}
+          onChange={(e) => {
+            const selected = trucks.find(t => t.id.toString() === e.target.value);
+            handleTruckChange(selected);
+          }}
+        >
+          <option value="">-- Select a Truck --</option>
+          {trucksWithOrders.map(truck => (
+            <option key={truck.id} value={truck.id}>
+              {truck.number || truck.truckNumber} - Driver: {truck.driverName}
+            </option>
+          ))}
+        </select>
+        {trucksWithOrders.length === 0 && (
+          <p className="mt-1 text-sm text-red-500">No trucks with assigned orders available.</p>
+        )}
       </div>
+      
+      {/* Display warehouse info for the selected truck */}
+      {selectedWarehouse && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="font-semibold text-blue-800">Warehouse Information</h3>
+          <div className="grid grid-cols-2 gap-x-4 mt-2">
+            <div className="text-sm text-gray-700">
+              <span className="font-medium">Name:</span> {selectedWarehouse.name}
+            </div>
+            <div className="text-sm text-gray-700">
+              <span className="font-medium">Location:</span> {selectedWarehouse.location || 'Location not available'}
+            </div>
+            <div className="text-sm text-gray-700">
+              <span className="font-medium">Coordinates:</span> {selectedWarehouse.latitude}, {selectedWarehouse.longitude}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Display assigned orders for the selected truck */}
       {selectedTruck && (
@@ -718,7 +840,8 @@ const Map = () => {
         </div>
       )}
       
-      <div className="h-96 w-full relative">
+      {/* Map container */}
+      <div className="h-96 w-full relative mb-4" ref={mapRef}>
         {isLoading && (
           <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10">
             <div className="text-center">
@@ -735,7 +858,7 @@ const Map = () => {
             center={mapCenter}
             zoom={mapZoom} 
             style={{ height: '100%', width: '100%' }}
-            ref={mapRef}
+            className="rounded-lg shadow-md"
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -801,7 +924,7 @@ const Map = () => {
                 <Popup>
                   <div>
                     <h3 className="font-bold">{selectedWarehouse.name}</h3>
-                    <p>{selectedWarehouse.location}</p>
+                    <p>{selectedWarehouse.location || 'Location not available'}</p>
                     <p className="font-semibold mt-2">Starting Point</p>
                   </div>
                 </Popup>
@@ -849,10 +972,10 @@ const Map = () => {
           </MapContainer>
         )}
       </div>
-
+  
       {/* Route information panel */}
       {routeStops.length > 0 && (
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h3 className="text-lg font-semibold text-blue-800 mb-2">Delivery Route Information</h3>
           
           <div className="overflow-x-auto">
@@ -916,6 +1039,94 @@ const Map = () => {
         </div>
       )}
       
+      {/* Detailed Loading Sequence - Always Displayed */}
+      {loadingSequence.length > 0 && (
+        <div className="mb-6 bg-white shadow-lg rounded-lg overflow-hidden">
+          <div className="bg-indigo-600 px-6 py-4">
+            <h3 className="text-lg font-bold text-white">
+              Loading Sequence for {selectedTruck?.number || selectedTruck?.truckNumber}
+            </h3>
+            <p className="text-indigo-100 text-sm">
+              Items should be loaded in reverse order (last delivery items first, first delivery items last)
+            </p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white">
+              <thead>
+                <tr>
+                  <th className="bg-indigo-50 text-indigo-800 py-3 px-4 border-b border-indigo-100 text-left text-xs font-semibold uppercase tracking-wider">
+                    Loading Order
+                  </th>
+                  <th className="bg-indigo-50 text-indigo-800 py-3 px-4 border-b border-indigo-100 text-left text-xs font-semibold uppercase tracking-wider">
+                    Delivery Order
+                  </th>
+                  <th className="bg-indigo-50 text-indigo-800 py-3 px-4 border-b border-indigo-100 text-left text-xs font-semibold uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th className="bg-indigo-50 text-indigo-800 py-3 px-4 border-b border-indigo-100 text-left text-xs font-semibold uppercase tracking-wider">
+                    Est. Arrival
+                  </th>
+                  <th className="bg-indigo-50 text-indigo-800 py-3 px-4 border-b border-indigo-100 text-left text-xs font-semibold uppercase tracking-wider">
+                    Order Items
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingSequence.map((item, index) => (
+                  <tr 
+                    key={`loading-${index}`} 
+                    className={`border-b border-gray-200 hover:bg-indigo-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                  >
+                    <td className="py-3 px-4 text-center font-medium text-gray-900">
+                      <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 text-indigo-800 font-bold">
+                        {item.loadingPosition}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-green-100 text-green-800 font-bold">
+                        {item.deliveryPosition}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 font-medium">
+                      {item.customerName}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-gray-700">{item.estimatedArrival}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {item.orderItems && item.orderItems.length > 0 ? (
+                        <div className="space-y-1">
+                          {item.orderItems.map((orderItem, itemIndex) => (
+                            <div 
+                              key={`item-${itemIndex}`} 
+                              className="flex items-center py-1 px-2 bg-white rounded-md border border-gray-200"
+                            >
+                              <div className="h-4 w-4 bg-indigo-100 rounded-full text-indigo-800 flex items-center justify-center text-xs font-bold mr-2">
+                                {orderItem.quantity || 1}
+                              </div>
+                              <span className="text-sm">{orderItem.productName || orderItem.name || 'Product'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 italic">No items data available</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="bg-indigo-50 px-6 py-4">
+            <p className="text-sm text-indigo-800 font-medium">
+              Note: The loading sequence is optimized to minimize delivery time and effort when unloading.
+            </p>
+          </div>
+        </div>
+      )}
+      
       {/* No routes message */}
       {routeStops.length === 0 && selectedTruck && selectedWarehouse && !isLoading && (
         <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
@@ -923,6 +1134,17 @@ const Map = () => {
             No delivery routes found for this truck and warehouse combination. 
             Please ensure that there are assigned orders for the selected truck from the selected warehouse.
           </p>
+        </div>
+      )}
+      
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-5 rounded-lg shadow-lg">
+            <p className="text-lg font-semibold text-center mb-3">Calculating optimal route...</p>
+            <div className="loader h-2 w-64 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-600 animate-pulse" style={{ width: '100%' }}></div>
+            </div>
+          </div>
         </div>
       )}
     </div>

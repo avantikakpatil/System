@@ -234,3 +234,5 @@ D:\Aarkay\Responsive System - Copy\inventory-api\obj\Debug\net9.0\refint\invento
 D:\Aarkay\Responsive System - Copy\inventory-api\obj\Debug\net9.0\inventory-api.pdb
 D:\Aarkay\Responsive System - Copy\inventory-api\obj\Debug\net9.0\inventory-api.genruntimeconfig.cache
 D:\Aarkay\Responsive System - Copy\inventory-api\obj\Debug\net9.0\ref\inventory-api.dll
+D:\Aarkay\Responsive System - Copy\inventory-api\bin\Debug\net9.0\package-lock.json
+D:\Aarkay\Responsive System - Copy\inventory-api\bin\Debug\net9.0\package.json
