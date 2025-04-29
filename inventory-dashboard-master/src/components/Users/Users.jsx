@@ -65,6 +65,7 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
+  const [expandedUser, setExpandedUser] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -222,18 +223,22 @@ const Users = () => {
     }
   };
 
-  if (loading) return <div className="p-6">Loading users...</div>;
-  if (error) return <div className="p-6 text-red-500">{error}</div>;
+  const toggleExpandUser = (id) => {
+    setExpandedUser(expandedUser === id ? null : id);
+  };
+
+  if (loading) return <div className="p-4">Loading users...</div>;
+  if (error) return <div className="p-4 text-red-500">{error}</div>;
 
   return (
-    <div className="p-6 w-full">
-      <h1 className="text-2xl font-bold mb-6">User Management</h1>
+    <div className="p-4 md:p-6 w-full">
+      <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">User Management</h1>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Users List</h2>
+      <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-2">
+          <h2 className="text-lg md:text-xl font-semibold">Users List</h2>
           <button
-            className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+            className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 md:py-2 md:px-4 rounded text-sm md:text-base w-full sm:w-auto"
             onClick={() => {
               setShowAddForm(!showAddForm);
               setEditingUser(null);
@@ -258,12 +263,12 @@ const Users = () => {
         </div>
 
         {showAddForm && (
-          <div className="mb-6 p-4 border rounded bg-gray-50">
-            <h3 className="text-lg font-medium mb-4">
+          <div className="mb-4 md:mb-6 p-3 md:p-4 border rounded bg-gray-50">
+            <h3 className="text-md md:text-lg font-medium mb-3 md:mb-4">
               {editingUser ? "Edit User" : "Add New User"}
             </h3>
             <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {[
                   { label: "Full Name", name: "name" },
                   { label: "Email", name: "email", type: "email" },
@@ -278,22 +283,22 @@ const Users = () => {
                   { label: "Notes", name: "notes" },
                 ].map(({ label, name, type = "text" }) => (
                   <div key={name}>
-                    <label className="block text-gray-700 font-bold mb-2">{label}</label>
+                    <label className="block text-gray-700 font-bold mb-1 text-sm md:text-base">{label}</label>
                     <input
-                      className="border rounded w-full py-2 px-3"
+                      className="border rounded w-full py-1 px-2 md:py-2 md:px-3 text-sm md:text-base"
                       type={type}
                       name={name}
                       value={formData[name]}
                       onChange={handleChange}
-                      required={name !== "notes"}
+                      required={name === "name" || name === "email"}
                     />
                   </div>
                 ))}
 
                 <div>
-                  <label className="block text-gray-700 font-bold mb-2">Role</label>
+                  <label className="block text-gray-700 font-bold mb-1 text-sm md:text-base">Role</label>
                   <select
-                    className="border rounded w-full py-2 px-3"
+                    className="border rounded w-full py-1 px-2 md:py-2 md:px-3 text-sm md:text-base"
                     name="role"
                     value={formData.role}
                     onChange={handleChange}
@@ -305,12 +310,15 @@ const Users = () => {
                 </div>
               </div>
 
-              <div className="mt-4">
-                <button className="bg-green-500 text-white py-2 px-4 rounded mr-2" type="submit">
+              <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                <button 
+                  className="bg-green-500 hover:bg-green-600 text-white py-1 px-3 md:py-2 md:px-4 rounded text-sm md:text-base" 
+                  type="submit"
+                >
                   {editingUser ? "Update User" : "Add User"}
                 </button>
                 <button
-                  className="bg-gray-500 text-white py-2 px-4 rounded"
+                  className="bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 md:py-2 md:px-4 rounded text-sm md:text-base"
                   type="button"
                   onClick={() => setShowAddForm(false)}
                 >
@@ -321,46 +329,97 @@ const Users = () => {
           </div>
         )}
 
-<table className="min-w-full bg-white border rounded">
-          <thead>
-            <tr className="bg-gray-100 text-gray-600 uppercase text-sm">
-              <th className="py-3 px-6">ID</th>
-              <th className="py-3 px-6">Name</th>
-              <th className="py-3 px-6">Email</th>
-              <th className="py-3 px-6">Role</th>
-              <th className="py-3 px-6 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="border-b hover:bg-gray-100">
-                <td className="py-3 px-6">{user.id}</td>
-                <td className="py-3 px-6">{user.CustomerName}</td>
-                <td className="py-3 px-6">{user.Email}</td>
-                <td className="py-3 px-6">{user.Role || 'User'}</td>
-                <td className="py-3 px-6 text-center">
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      className="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600"
-                      onClick={() => handleEdit(user)}
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      className="bg-red-500 text-white py-1 px-3 rounded hover:bg-red-600"
-                      onClick={() => handleDelete(user.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
+        {/* Responsive Table/Card View */}
+        <div className="hidden md:block">
+          <table className="min-w-full bg-white border rounded">
+            <thead>
+              <tr className="bg-gray-100 text-gray-600 uppercase text-sm">
+                <th className="py-2 px-3 md:py-3 md:px-6">ID</th>
+                <th className="py-2 px-3 md:py-3 md:px-6">Name</th>
+                <th className="py-2 px-3 md:py-3 md:px-6">Email</th>
+                <th className="py-2 px-3 md:py-3 md:px-6">Role</th>
+                <th className="py-2 px-3 md:py-3 md:px-6 text-center">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id} className="border-b hover:bg-gray-50">
+                  <td className="py-2 px-3 md:py-3 md:px-6 text-sm">{user.id}</td>
+                  <td className="py-2 px-3 md:py-3 md:px-6 text-sm">{user.CustomerName}</td>
+                  <td className="py-2 px-3 md:py-3 md:px-6 text-sm">{user.Email}</td>
+                  <td className="py-2 px-3 md:py-3 md:px-6 text-sm">{user.Role || 'User'}</td>
+                  <td className="py-2 px-3 md:py-3 md:px-6 text-center">
+                    <div className="flex justify-center space-x-2">
+                      <button 
+                        className="bg-blue-500 text-white py-1 px-2 md:px-3 rounded hover:bg-blue-600 text-xs md:text-sm"
+                        onClick={() => handleEdit(user)}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        className="bg-red-500 text-white py-1 px-2 md:px-3 rounded hover:bg-red-600 text-xs md:text-sm"
+                        onClick={() => handleDelete(user.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden">
+          {users.map((user) => (
+            <div key={user.id} className="bg-white border rounded-lg mb-3 shadow-sm">
+              <div className="p-3 border-b flex justify-between items-center">
+                <div>
+                  <h3 className="font-semibold">{user.CustomerName}</h3>
+                  <p className="text-sm text-gray-600">{user.Email}</p>
+                  <p className="text-xs text-gray-500">Role: {user.Role || 'User'}</p>
+                </div>
+                <button 
+                  onClick={() => toggleExpandUser(user.id)}
+                  className="text-blue-500 text-sm"
+                >
+                  {expandedUser === user.id ? 'Hide' : 'Details'}
+                </button>
+              </div>
+              
+              {expandedUser === user.id && (
+                <div className="p-3 bg-gray-50 text-sm">
+                  <p><strong>ID:</strong> {user.id}</p>
+                  {user.PhoneNumber && <p><strong>Phone:</strong> {user.PhoneNumber}</p>}
+                  {user.CompanyName && <p><strong>Company:</strong> {user.CompanyName}</p>}
+                  {user.ShippingAddress && <p><strong>Shipping:</strong> {user.ShippingAddress}</p>}
+                  {user.BillingAddress && <p><strong>Billing:</strong> {user.BillingAddress}</p>}
+                  {user.GSTNumber && <p><strong>GST:</strong> {user.GSTNumber}</p>}
+                  {user.Notes && <p><strong>Notes:</strong> {user.Notes}</p>}
+                </div>
+              )}
+              
+              <div className="p-3 flex justify-end space-x-2">
+                <button 
+                  className="bg-blue-500 text-white py-1 px-3 rounded text-xs"
+                  onClick={() => handleEdit(user)}
+                >
+                  Edit
+                </button>
+                <button 
+                  className="bg-red-500 text-white py-1 px-3 rounded text-xs"
+                  onClick={() => handleDelete(user.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
 
         {users.length === 0 && (
-          <div className="text-center text-gray-500 py-4">
+          <div className="text-center text-gray-500 py-4 text-sm md:text-base">
             No users found. Add a new user to get started.
           </div>
         )}
